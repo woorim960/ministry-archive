@@ -194,58 +194,62 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     if (textarea) setSelection({ start: textarea.selectionStart, end: textarea.selectionEnd });
   }
 
+  // ── Shared: scroll preview so the block for the given source line is at top ──
+  function syncPreviewToLine(topLine: number) {
+    const preview = previewScrollRef.current;
+    if (!preview) return;
+    const blocks = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
+    if (blocks.length === 0) return;
+    let best = blocks[0];
+    for (const block of blocks) {
+      if (Number(block.dataset.sourceLine) <= topLine) best = block;
+      else break;
+    }
+    // best.offsetTop is relative to the offsetParent chain inside preview.
+    // We want the scroll amount that puts the best block at the top of preview.
+    const contentRoot = preview.querySelector<HTMLElement>(".markdown-body");
+    const rootOffset = contentRoot ? contentRoot.offsetTop : 0;
+    preview.scrollTop = Math.max(0, best.offsetTop - rootOffset);
+  }
+
+  // ── Triggered by editor-panel (outer container) scroll ──────────────────────
+  // editor-panel contains: [metadata] + [toolbar(sticky)] + [textarea]
+  // scrollTop of editor-panel is only meaningful AFTER the textarea starts.
   function handleEditorScroll() {
     const editor = editorPanelRef.current;
-    const preview = previewScrollRef.current;
     const textarea = textareaRef.current;
-    if (!editor || !preview) return;
+    if (!editor || !textarea) return;
 
-    // ── Line-based sync ──────────────────────────────────────────────────────
-    // editor-panel scrolls the whole section: [metadata] + [toolbar(sticky)] + [textarea]
-    // We need the scroll position *within the textarea content* only.
-    if (textarea) {
-      const source = draft.markdown || "";
-      const totalLines = (source.match(/\n/g)?.length ?? 0) + 1;
+    const source = draft.markdown || "";
+    const totalLines = (source.match(/\n/g)?.length ?? 0) + 1;
+    if (totalLines <= 1) return;
 
-      // Compute the real line-height from CSS (font-size 13px, line-height 1.85)
-      const computed = window.getComputedStyle(textarea);
-      const lineHeightPx = parseFloat(computed.lineHeight) || 13 * 1.85;
+    const computed = window.getComputedStyle(textarea);
+    const lineHeightPx = parseFloat(computed.lineHeight) || 13 * 1.85;
+    // Distance from editor-panel top to where the textarea content starts
+    const textareaOffsetTop = textarea.offsetTop;
+    // How far into textarea content has the panel scrolled?
+    const scrollWithinTextarea = Math.max(0, editor.scrollTop - textareaOffsetTop);
+    const topLine = Math.floor(scrollWithinTextarea / lineHeightPx);
+    syncPreviewToLine(topLine);
+  }
 
-      // How far down the textarea starts inside the editor-panel
-      const textareaOffsetTop = textarea.offsetTop; // distance from editor-panel top
+  // ── Triggered by textarea's OWN internal scroll ──────────────────────────────
+  // When the textarea overflows internally (content > panel height),
+  // its own scroll event fires, separate from the panel scroll.
+  function handleTextareaScroll() {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
 
-      // How many pixels of the textarea have scrolled past the top of the editor-panel viewport?
-      // (clamp to 0 so we don't go negative when metadata is still visible)
-      const scrollWithinTextarea = Math.max(0, editor.scrollTop - textareaOffsetTop);
+    const source = draft.markdown || "";
+    const totalLines = (source.match(/\n/g)?.length ?? 0) + 1;
+    if (totalLines <= 1) return;
 
-      // Estimate which source line is at the top of the editor viewport
-      const topLine = Math.floor(scrollWithinTextarea / lineHeightPx);
-
-      // Find [data-source-line] blocks in the preview, pick the one whose
-      // startLine is the largest value that is still ≤ topLine
-      const blocks = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
-      if (blocks.length > 0 && totalLines > 1) {
-        let best = blocks[0];
-        for (const block of blocks) {
-          if (Number(block.dataset.sourceLine) <= topLine) best = block;
-          else break;
-        }
-
-        // Scroll preview so that best block lands at the very top of the preview viewport
-        // best.offsetTop is relative to the preview's scrollable content root
-        const contentRoot = preview.querySelector<HTMLElement>(".markdown-body");
-        const rootOffset = contentRoot ? contentRoot.offsetTop : 0;
-        const targetScroll = best.offsetTop - rootOffset;
-        preview.scrollTop = Math.max(0, targetScroll);
-        return;
-      }
-    }
-
-    // ── Fallback: ratio-based (for very short content) ───────────────────────
-    const editorScrollHeight = editor.scrollHeight - editor.clientHeight;
-    if (editorScrollHeight <= 0) return;
-    const scrollRatio = editor.scrollTop / editorScrollHeight;
-    preview.scrollTop = scrollRatio * (preview.scrollHeight - preview.clientHeight);
+    const computed = window.getComputedStyle(textarea);
+    const lineHeightPx = parseFloat(computed.lineHeight) || 13 * 1.85;
+    // textarea.scrollTop is the scroll within the textarea itself
+    const topLine = Math.floor(textarea.scrollTop / lineHeightPx);
+    syncPreviewToLine(topLine);
   }
 
 
@@ -735,7 +739,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
           </div>
 
           <div className="markdown-editor-wrap" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (event.dataTransfer.files.length) uploadFiles(event.dataTransfer.files); }}>
-            <textarea ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} value={draft.markdown} onChange={(event) => update("markdown", event.target.value)} onSelect={rememberSelection} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onKeyDown={handleTextareaKeyDown} spellCheck placeholder="Markdown으로 기획서를 작성하세요." aria-label="기획서 본문 Markdown"/>
+            <textarea ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} value={draft.markdown} onChange={(event) => update("markdown", event.target.value)} onScroll={handleTextareaScroll} onSelect={rememberSelection} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onKeyDown={handleTextareaKeyDown} spellCheck placeholder="Markdown으로 기획서를 작성하세요." aria-label="기획서 본문 Markdown"/>
             {fieldErrors.markdown && <small className="editor-error">{fieldErrors.markdown}</small>}
             <div className="drop-guidance"><span>이미지를 문장 사이에 끌어 놓으세요.</span><small>JPG · PNG · WEBP, 최대 8MB</small></div>
           </div>
