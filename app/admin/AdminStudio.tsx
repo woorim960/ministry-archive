@@ -236,6 +236,61 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     return () => clearTimeout(timer);
   }, [draft.markdown, selection]);
 
+  // ── Scroll-based preview sync (Center-to-Center) ───────────────────────
+  const handleScroll = useCallback(() => {
+    const textarea = textareaRef.current;
+    const editor = editorPanelRef.current;
+    const preview = previewScrollRef.current;
+    if (!textarea || !preview || !editor) return;
+
+    const source = draft.markdown || "";
+    if ((source.match(/\n/g)?.length ?? 0) < 1) return;
+
+    const computed = window.getComputedStyle(textarea);
+    const lineH = parseFloat(computed.lineHeight) || 24;
+    const padTop = parseFloat(computed.paddingTop) || 30;
+
+    let centerScrolledPast = 0;
+
+    if (textarea.scrollTop > 0) {
+      const visibleCenter = textarea.scrollTop + (textarea.clientHeight / 2);
+      centerScrolledPast = Math.max(0, visibleCenter - padTop);
+    } else {
+      const editorRect = editor.getBoundingClientRect();
+      const textareaRect = textarea.getBoundingClientRect();
+      const toolbarEl = editor.querySelector<HTMLElement>(".markdown-toolbar");
+      const toolbarH = toolbarEl ? toolbarEl.getBoundingClientRect().height : 0;
+      
+      const visibleTop = editorRect.top + toolbarH;
+      const visibleBottom = editorRect.bottom;
+      const visibleCenter = (visibleTop + visibleBottom) / 2;
+      
+      const textStartY = textareaRect.top + padTop;
+      centerScrolledPast = Math.max(0, visibleCenter - textStartY);
+    }
+
+    const centerLine = Math.floor(centerScrolledPast / lineH) + 1;
+
+    const blocks = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
+    if (blocks.length === 0) return;
+
+    let best = blocks[0];
+    for (const block of blocks) {
+      if (Number(block.dataset.sourceLine) <= centerLine) {
+        best = block;
+      } else {
+        break;
+      }
+    }
+
+    const previewRect = preview.getBoundingClientRect();
+    const blockRect = best.getBoundingClientRect();
+
+    const targetScrollTop = preview.scrollTop + (blockRect.top - previewRect.top) - (previewRect.height / 2) + (blockRect.height / 2);
+    
+    preview.scrollTo({ top: Math.max(0, targetScrollTop) });
+  }, [draft.markdown]);
+
 
   function handleTextareaKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Tab") {
@@ -683,7 +738,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
           {savedDocuments.map(({ document: item, savedDocument, hasUnsavedChanges }) => <button type="button" className={`document-row ${hasUnsavedChanges ? "working" : ""} ${draft.clientKey === item.clientKey ? "selected" : ""}`} onClick={() => openSaved(item)} key={item.clientKey}><small>{hasUnsavedChanges ? <><i/>수정 중</> : savedDocument.isPublished ? "공개" : "초안"}</small><strong>{item.title || "제목 없는 기획서"}</strong><span>{savedDocument.updatedAt?.slice(0, 10)}</span></button>)}
         </aside>
 
-        <section ref={editorPanelRef} className={`editor-panel ${mobileTab === "write" ? "mobile-active" : ""}`}>
+        <section ref={editorPanelRef} className={`editor-panel ${mobileTab === "write" ? "mobile-active" : ""}`} onScroll={handleScroll}>
           <div className="editor-metadata">
             <label className={fieldErrors.title ? "has-error" : ""}><span>제목</span><input ref={titleRef} value={draft.title} onChange={(event) => update("title", event.target.value)} placeholder="기획서 제목"/>{fieldErrors.title && <small>{fieldErrors.title}</small>}</label>
             <label className={fieldErrors.summary ? "has-error" : ""}><span>한 줄 소개</span><textarea value={draft.summary} onChange={(event) => update("summary", event.target.value)} placeholder="누가, 무엇을 위해 참고하면 좋은 기획인지 한 문장으로 설명해 주세요." rows={2}/>{fieldErrors.summary && <small>{fieldErrors.summary}</small>}</label>
@@ -723,7 +778,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
           </div>
 
           <div className="markdown-editor-wrap" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (event.dataTransfer.files.length) uploadFiles(event.dataTransfer.files); }}>
-            <textarea ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} value={draft.markdown} onChange={(event) => update("markdown", event.target.value)} onSelect={rememberSelection} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onKeyDown={handleTextareaKeyDown} spellCheck placeholder="Markdown으로 기획서를 작성하세요." aria-label="기획서 본문 Markdown"/>
+            <textarea ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} value={draft.markdown} onChange={(event) => update("markdown", event.target.value)} onScroll={handleScroll} onSelect={rememberSelection} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onKeyDown={handleTextareaKeyDown} spellCheck placeholder="Markdown으로 기획서를 작성하세요." aria-label="기획서 본문 Markdown"/>
             {fieldErrors.markdown && <small className="editor-error">{fieldErrors.markdown}</small>}
             <div className="drop-guidance"><span>이미지를 문장 사이에 끌어 놓으세요.</span><small>JPG · PNG · WEBP, 최대 8MB</small></div>
           </div>
