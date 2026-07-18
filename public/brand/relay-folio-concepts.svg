@@ -1,0 +1,55 @@
+<svg width="1200" height="760" viewBox="0 0 1200 760" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="concept-title concept-desc">
+  <title id="concept-title">Relay Folio 로고 구조 시안 3종</title>
+  <desc id="concept-desc">Offset Handoff, Continuous Folio, Editorial Relay 흑백 구조를 비교하고 Editorial Relay를 최종 선정한 보드</desc>
+  <rect width="1200" height="760" rx="32" fill="#F7F8FA"/>
+  <text x="72" y="82" fill="#16181D" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="3">RELAY FOLIO / STRUCTURE STUDY</text>
+  <text x="72" y="122" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="16">Planning → Record → Next execution</text>
+
+  <g transform="translate(72 184)">
+    <rect width="320" height="420" rx="20" fill="#FFFFFF" stroke="#E4E7EC"/>
+    <text x="28" y="42" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="2">A / OFFSET HANDOFF</text>
+    <g transform="translate(88 102) scale(6)">
+      <path d="M12 4H5.8Q4 4 4 5.8V14.2Q4 15 4.6 15.6L8.4 19.4" stroke="#16181D" stroke-width="2.1" stroke-linecap="square" stroke-linejoin="round"/>
+      <path d="M12 20H18.2Q20 20 20 18.2V9.8Q20 9 19.4 8.4L15.6 4.6" stroke="#16181D" stroke-width="2.1" stroke-linecap="square" stroke-linejoin="round"/>
+      <path d="M8.7 15.3L15.3 8.7" stroke="#16181D" stroke-width="2.1" stroke-linecap="round"/>
+    </g>
+    <line x1="28" y1="292" x2="292" y2="292" stroke="#E4E7EC"/>
+    <text x="28" y="326" fill="#16181D" font-family="'Noto Sans KR Thin', sans-serif" font-size="18" font-weight="700">겹쳐 건네는 두 장</text>
+    <text x="28" y="357" fill="#667085" font-family="'Noto Sans KR Thin', sans-serif" font-size="13">문서의 전승은 명확하지만</text>
+    <text x="28" y="379" fill="#667085" font-family="'Noto Sans KR Thin', sans-serif" font-size="13">축소 시 복사 아이콘과 가까워짐</text>
+  </g>
+
+  <g transform="translate(440 184)">
+    <rect width="320" height="420" rx="20" fill="#FFFFFF" stroke="#E4E7EC"/>
+    <text x="28" y="42" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="2">B / CONTINUOUS FOLIO</text>
+    <g transform="translate(88 102) scale(6)">
+      <path d="M11 4H5.8Q4 4 4 5.8V13.8Q4 14.6 4.6 15.2L8.8 19.4Q9.4 20 10.2 20H18.2Q20 20 20 18.2V10.2Q20 9.4 19.4 8.8L15.2 4.6Q14.6 4 13.8 4" stroke="#16181D" stroke-width="2.05" stroke-linecap="square" stroke-linejoin="round"/>
+      <path d="M9.2 13.8L14.8 10.2" stroke="#16181D" stroke-width="2.3" stroke-linecap="round"/>
+    </g>
+    <line x1="28" y1="292" x2="292" y2="292" stroke="#E4E7EC"/>
+    <text x="28" y="326" fill="#16181D" font-family="'Noto Sans KR Thin', sans-serif" font-size="18" font-weight="700">한 획으로 순환하는 기록</text>
+    <text x="28" y="357" fill="#667085" font-family="'Noto Sans KR Thin', sans-serif" font-size="13">독창적이지만 초소형에서</text>
+    <text x="28" y="379" fill="#667085" font-family="'Noto Sans KR Thin', sans-serif" font-size="13">내부 의미가 약해질 수 있음</text>
+  </g>
+
+  <g transform="translate(808 184)">
+    <rect width="320" height="420" rx="20" fill="#FFFFFF" stroke="#D61F3C" stroke-width="2"/>
+    <rect x="226" y="22" width="66" height="26" rx="6" fill="#FFF1F3"/>
+    <text x="240" y="40" fill="#D61F3C" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="800" letter-spacing="1">SELECTED</text>
+    <text x="28" y="42" fill="#D61F3C" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="2">C / EDITORIAL RELAY</text>
+    <g transform="translate(88 102) scale(6)">
+      <path d="M10 4H5.8Q4 4 4 5.8V18.2Q4 20 5.8 20H10" stroke="#16181D" stroke-width="2.25" stroke-linecap="square" stroke-linejoin="round"/>
+      <path d="M14 4H18.2Q20 4 20 5.8V18.2Q20 20 18.2 20H14" stroke="#16181D" stroke-width="2.25" stroke-linecap="square" stroke-linejoin="round"/>
+      <path d="M9 15L15 9" stroke="#D61F3C" stroke-width="2.4" stroke-linecap="round"/>
+    </g>
+    <line x1="28" y1="292" x2="292" y2="292" stroke="#E4E7EC"/>
+    <text x="28" y="326" fill="#16181D" font-family="'Noto Sans KR Thin', sans-serif" font-size="18" font-weight="700">마주 보는 기록면과 전달선</text>
+    <text x="28" y="357" fill="#667085" font-family="'Noto Sans KR Thin', sans-serif" font-size="13">가장 높은 축소 식별력과</text>
+    <text x="28" y="379" fill="#667085" font-family="'Noto Sans KR Thin', sans-serif" font-size="13">편집·기록·전승의 균형</text>
+  </g>
+
+  <text x="72" y="686" fill="#16181D" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="1">ARCHIVE INK  #16181D</text>
+  <circle cx="278" cy="681" r="7" fill="#D61F3C"/>
+  <text x="298" y="686" fill="#16181D" font-family="Inter, Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="1">CONTINUITY RED  #D61F3C</text>
+  <text x="1128" y="686" text-anchor="end" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="12" letter-spacing="1.5">MAPO PLANNING ARCHIVE</text>
+</svg>

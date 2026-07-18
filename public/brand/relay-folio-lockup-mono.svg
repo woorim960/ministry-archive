@@ -1,0 +1,10 @@
+<svg width="432" height="96" viewBox="0 0 432 96" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="lockup-title">
+  <title id="lockup-title">구세군 마포영문 기획 아카이브 단색 로고</title>
+  <g transform="translate(12 12) scale(3)">
+    <path d="M10 4H5.8Q4 4 4 5.8V18.2Q4 20 5.8 20H10" stroke="#16181D" stroke-width="2.25" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M14 4H18.2Q20 4 20 5.8V18.2Q20 20 18.2 20H14" stroke="#16181D" stroke-width="2.25" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M9 15L15 9" stroke="#16181D" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+  <text x="102" y="44" fill="#16181D" font-family="'Noto Sans KR Thin', sans-serif" font-size="25" font-weight="700" letter-spacing="-0.7">구세군 마포영문</text>
+  <text x="103" y="68" fill="#16181D" font-family="'Noto Sans KR Thin', sans-serif" font-size="13" font-weight="600" letter-spacing="2.1">기획 아카이브</text>
+</svg>

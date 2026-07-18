@@ -1,0 +1,7 @@
+<svg width="240" height="240" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">구세군 마포영문 기획 아카이브 심벌</title>
+  <desc id="desc">마주 보는 두 기록면 사이로 붉은 전달선이 이어지는 Relay Folio 심벌</desc>
+  <path d="M10 4H5.8Q4 4 4 5.8V18.2Q4 20 5.8 20H10" stroke="#16181D" stroke-width="2.25" stroke-linecap="square" stroke-linejoin="round"/>
+  <path d="M14 4H18.2Q20 4 20 5.8V18.2Q20 20 18.2 20H14" stroke="#16181D" stroke-width="2.25" stroke-linecap="square" stroke-linejoin="round"/>
+  <path d="M9 15L15 9" stroke="#D61F3C" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

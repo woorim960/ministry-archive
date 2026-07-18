@@ -1,0 +1,21 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#F7F8FA"/>
+  <path d="M0 94H1200M0 536H1200" stroke="#E4E7EC"/>
+  <path d="M92 0V630M1108 0V630" stroke="#E4E7EC"/>
+  <g opacity=".45">
+    <path d="M92 160H1108M92 248H1108M92 336H1108M92 424H1108" stroke="#E4E7EC"/>
+  </g>
+  <g transform="translate(82 64) scale(2.5)">
+    <path d="M10 4H5.8Q4 4 4 5.8V18.2Q4 20 5.8 20H10" stroke="#16181D" stroke-width="2.25" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M14 4H18.2Q20 4 20 5.8V18.2Q20 20 18.2 20H14" stroke="#16181D" stroke-width="2.25" stroke-linecap="square" stroke-linejoin="round"/>
+    <path d="M9 15L15 9" stroke="#D61F3C" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+  <text x="164" y="108" fill="#16181D" font-family="'Noto Sans KR Thin', sans-serif" font-size="22" font-weight="700">구세군 마포영문</text>
+  <text x="164" y="139" fill="#667085" font-family="'Noto Sans KR Thin', sans-serif" font-size="13" font-weight="600" letter-spacing="2.4">기획 아카이브</text>
+  <circle cx="94" cy="225" r="6" fill="#D61F3C"/>
+  <text x="118" y="232" fill="#D61F3C" font-family="Pretendard, SUIT, 'Noto Sans KR', sans-serif" font-size="17" font-weight="700">MAPO PLANNING ARCHIVE</text>
+  <text x="92" y="340" fill="#16181D" font-family="'Noto Sans KR Thin', sans-serif" font-size="58" font-weight="700" letter-spacing="-2.8">함께 준비한 기획을,</text>
+  <text x="92" y="412" fill="#475467" font-family="'Noto Sans KR Thin', sans-serif" font-size="58" font-weight="700" letter-spacing="-2.8">다음 사람에게 이어갑니다.</text>
+  <text x="92" y="514" fill="#667085" font-family="'Noto Sans KR Thin', sans-serif" font-size="18">현장에서 만든 기획을 읽기 좋은 기록으로 남깁니다.</text>
+  <text x="1108" y="576" text-anchor="end" fill="#98A2B3" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="2">RELAY FOLIO / 2026</text>
+</svg>

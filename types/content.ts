@@ -1,0 +1,41 @@
+export type ResourceSummary = {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  category: string;
+  audience: string;
+  duration: string;
+  participants?: string;
+  difficulty?: string;
+  coverUrl?: string;
+  tags: string[];
+  markdown?: string;
+  isSample?: boolean;
+  isPublished?: boolean;
+  updatedAt: string;
+  readMinutes: number;
+  contentFormat?: "markdown-v1" | "markdown-v2";
+  version?: number;
+};
+
+export type MarkdownBlock = {
+  id: string;
+  type: "heading" | "paragraph" | "quote" | "toggle" | "callout" | "image" | "youtube" | "list" | "table" | "code" | "divider";
+  raw: string;
+  startLine: number;
+  endLine: number;
+  level?: number;
+  text?: string;
+  title?: string;
+  items?: string[];
+  ordered?: boolean;
+  checked?: Array<boolean | null>;
+  src?: string;
+  alt?: string;
+  caption?: string;
+  width?: "content" | "wide" | "full";
+  url?: string;
+  rows?: string[][];
+  tone?: "red" | "blue" | "green" | "amber" | "violet" | "neutral";
+};
