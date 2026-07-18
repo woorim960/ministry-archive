@@ -690,6 +690,11 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       event.preventDefault();
     }
   }
+  function handleToolbarWheel(event: React.WheelEvent<HTMLDivElement>) {
+    if (event.deltaY !== 0) {
+      event.currentTarget.scrollLeft += event.deltaY;
+    }
+  }
 
   const focusMode = !leftPanelOpen && !rightPanelOpen;
   function toggleFocusMode() {
@@ -719,7 +724,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       <div className="studio-commandbar">
         <button type="button" className="mobile-library-button" aria-expanded={mobileLibraryOpen} aria-controls="saved-panel" onClick={() => setMobileLibraryOpen(true)}><PanelLeftIcon size={18}/><span>기획서</span></button>
         <div className="workspace-view-controls" role="group" aria-label="편집 화면 패널 보기">
-          <button type="button" className="has-tip focus-mode-control" data-help={focusMode ? "이전에 보던 패널 구성을 다시 엽니다." : "목록과 미리보기를 한 번에 접고 편집창만 봅니다."} aria-label={focusMode ? "집중 모드 종료" : "집중 모드 시작"} aria-pressed={focusMode} onClick={toggleFocusMode}><FocusIcon size={17}/><span>{focusMode ? "복원" : "집중"}</span></button>
+          <button type="button" className="has-tip focus-mode-control" data-help={focusMode ? "클릭하면 미리보기와 목록 패널을 엽니다." : "클릭하면 양쪽 패널을 닫고 편집에 집중합니다."} aria-label={focusMode ? "집중 모드 종료" : "집중 모드 시작"} aria-pressed={focusMode} onClick={toggleFocusMode}><FocusIcon size={17}/><span>{focusMode ? "미리보기 켜기" : "미리보기 중.."}</span></button>
         </div>
         <div className="mobile-editor-tabs"><button className={mobileTab === "write" ? "active" : ""} onClick={() => setMobileTab("write")}>작성</button><button className={mobileTab === "preview" ? "active" : ""} onClick={() => setMobileTab("preview")}>미리보기</button></div>
         <div className="studio-actions"><button type="button" onClick={() => void save("save")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "저장 및 반영" : "저장"}</button><button className="publish-button" type="button" onClick={() => void save("publish")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "공개됨" : "공개하기"} <ArrowIcon size={17}/></button></div>
@@ -754,7 +759,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
 
           <div className="markdown-toolbar" role="toolbar" aria-label="기획서 서식">
             <div className="toolbar-guide"><b>{selection.end > selection.start ? "선택한 글자에 효과를 적용합니다." : "글자를 드래그한 뒤 효과를 선택하세요."}</b><small>각 버튼에 마우스를 올리면 사용법이 표시됩니다.</small></div>
-            <div ref={toolbarCallbackRef} className="toolbar-groups-viewport" aria-label="서식 도구 가로 스크롤" onPointerDown={startToolbarDrag} onPointerMove={moveToolbarDrag} onPointerUp={endToolbarDrag} onPointerCancel={endToolbarDrag} onClickCapture={handleToolbarClickCapture}><div className="toolbar-groups">
+            <div ref={toolbarCallbackRef} className="toolbar-groups-viewport" aria-label="서식 도구 가로 스크롤" onPointerDown={startToolbarDrag} onPointerMove={moveToolbarDrag} onPointerUp={endToolbarDrag} onPointerCancel={endToolbarDrag} onClickCapture={handleToolbarClickCapture} onWheel={handleToolbarWheel}><div className="toolbar-groups">
               <div className="toolbar-group toolbar-text-group"><span>글자 효과</span>
                 <button type="button" className="has-tip format-strong" data-help="선택한 글자를 굵게 강조합니다. (Cmd/Ctrl+B) 문법: **글자**" title="선택한 글자를 굵게 강조합니다. (Cmd/Ctrl+B)" onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("**", "**")}>B</button>
                 <button type="button" className="has-tip format-em" data-help="선택한 글자를 기울여 표시합니다. (Cmd/Ctrl+I) 문법: _글자_" title="선택한 글자를 기울여 표시합니다. (Cmd/Ctrl+I)" onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("_", "_")}>I</button>
