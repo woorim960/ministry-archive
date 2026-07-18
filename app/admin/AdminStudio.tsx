@@ -194,7 +194,10 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     if (textarea) setSelection({ start: textarea.selectionStart, end: textarea.selectionEnd });
   }
 
-  // ── Shared: scroll preview so the block for the given source line is at top ──
+  // ── Shared: scroll preview so the given source line's block appears at the
+  //    very top of the preview viewport.
+  //    Uses getBoundingClientRect() — always relative to the actual viewport,
+  //    independent of offsetParent chain depth.
   function syncPreviewToLine(topLine: number) {
     const preview = previewScrollRef.current;
     if (!preview) return;
@@ -205,51 +208,52 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       if (Number(block.dataset.sourceLine) <= topLine) best = block;
       else break;
     }
-    // best.offsetTop is relative to the offsetParent chain inside preview.
-    // We want the scroll amount that puts the best block at the top of preview.
-    const contentRoot = preview.querySelector<HTMLElement>(".markdown-body");
-    const rootOffset = contentRoot ? contentRoot.offsetTop : 0;
-    preview.scrollTop = Math.max(0, best.offsetTop - rootOffset);
+    // Delta between where block currently sits and the preview top
+    const previewRect = preview.getBoundingClientRect();
+    const blockRect = best.getBoundingClientRect();
+    preview.scrollTop += blockRect.top - previewRect.top;
   }
 
-  // ── Triggered by editor-panel (outer container) scroll ──────────────────────
-  // editor-panel contains: [metadata] + [toolbar(sticky)] + [textarea]
-  // scrollTop of editor-panel is only meaningful AFTER the textarea starts.
-  function handleEditorScroll() {
+  // ── Compute which source line is at the top of the editor's visible area.
+  //    Works for BOTH scroll scenarios:
+  //      A) editor-panel outer scroll  (textarea grows, panel scrolls)
+  //      B) textarea internal scroll   (textarea has overflow and its own scrollbar)
+  function computeTopLine(): number {
     const editor = editorPanelRef.current;
     const textarea = textareaRef.current;
-    if (!editor || !textarea) return;
-
-    const source = draft.markdown || "";
-    const totalLines = (source.match(/\n/g)?.length ?? 0) + 1;
-    if (totalLines <= 1) return;
-
+    if (!textarea) return 0;
     const computed = window.getComputedStyle(textarea);
-    const lineHeightPx = parseFloat(computed.lineHeight) || 13 * 1.85;
-    // Distance from editor-panel top to where the textarea content starts
-    const textareaOffsetTop = textarea.offsetTop;
-    // How far into textarea content has the panel scrolled?
-    const scrollWithinTextarea = Math.max(0, editor.scrollTop - textareaOffsetTop);
-    const topLine = Math.floor(scrollWithinTextarea / lineHeightPx);
-    syncPreviewToLine(topLine);
+    const lineH = parseFloat(computed.lineHeight) || 24;
+    const padTop = parseFloat(computed.paddingTop) || 30;
+
+    // Scenario B: textarea is scrolling internally
+    if (textarea.scrollTop > 0) {
+      return Math.max(0, Math.floor((textarea.scrollTop - padTop) / lineH));
+    }
+
+    // Scenario A: editor-panel is scrolling
+    if (!editor) return 0;
+    const editorTop = editor.getBoundingClientRect().top;
+    const textareaTop = textarea.getBoundingClientRect().top;
+    // Y coordinate of the first text character
+    const textStartY = textareaTop + padTop;
+    // How many pixels of text content are above the editor panel's top edge?
+    const scrolledPast = Math.max(0, editorTop - textStartY);
+    return Math.floor(scrolledPast / lineH);
   }
 
-  // ── Triggered by textarea's OWN internal scroll ──────────────────────────────
-  // When the textarea overflows internally (content > panel height),
-  // its own scroll event fires, separate from the panel scroll.
-  function handleTextareaScroll() {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
+  // ── Panel scroll (outer container) ────────────────────────────────────
+  function handleEditorScroll() {
     const source = draft.markdown || "";
-    const totalLines = (source.match(/\n/g)?.length ?? 0) + 1;
-    if (totalLines <= 1) return;
+    if ((source.match(/\n/g)?.length ?? 0) < 1) return;
+    syncPreviewToLine(computeTopLine());
+  }
 
-    const computed = window.getComputedStyle(textarea);
-    const lineHeightPx = parseFloat(computed.lineHeight) || 13 * 1.85;
-    // textarea.scrollTop is the scroll within the textarea itself
-    const topLine = Math.floor(textarea.scrollTop / lineHeightPx);
-    syncPreviewToLine(topLine);
+  // ── Textarea internal scroll ───────────────────────────────────────
+  function handleTextareaScroll() {
+    const source = draft.markdown || "";
+    if ((source.match(/\n/g)?.length ?? 0) < 1) return;
+    syncPreviewToLine(computeTopLine());
   }
 
 
