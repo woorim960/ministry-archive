@@ -8,7 +8,6 @@ import { CloseIcon, MenuIcon, PlusIcon } from "@/components/Icons";
 
 const links = [
   { href: "/archive", label: "전체 기획서" },
-  { href: "/about", label: "아카이브 소개" },
 ];
 
 export function SiteHeader() {
