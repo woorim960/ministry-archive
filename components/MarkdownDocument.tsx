@@ -86,7 +86,7 @@ export function MarkdownDocument({ markdown, editable, onDropAt, onMoveBlock }: 
       {blocks.map((block, index) => {
         let content: ReactNode;
         if (block.type === "heading") {
-          const Tag = `h${block.level}` as "h2" | "h3" | "h4";
+          const Tag = `h${block.level}` as "h1" | "h2" | "h3" | "h4" | "h5";
           content = <Tag id={headingId(block.text || "")}>{block.text}</Tag>;
         } else if (block.type === "paragraph") {
           content = <p>{inlineLines(block.text || "")}</p>;
@@ -97,8 +97,13 @@ export function MarkdownDocument({ markdown, editable, onDropAt, onMoveBlock }: 
         } else if (block.type === "callout") {
           content = <aside className={`document-callout tone-${block.tone || "blue"}`}><span>진행자 참고</span>{block.title && block.title !== "진행자 참고" ? <h3>{block.title}</h3> : null}<p>{inlineLines(block.text || "")}</p></aside>;
         } else if (block.type === "list") {
-          const List = block.ordered ? "ol" : "ul";
-          content = <List>{block.items?.map((item, i) => <li key={`${item}-${i}`} className={block.checked?.[i] !== null ? "check-item" : ""}>{block.checked?.[i] !== null && <span aria-hidden="true" className={block.checked?.[i] ? "checked" : ""}/>}<span>{inline(item)}</span></li>)}</List>;
+          if (block.listItems && block.listItems.length > 0) {
+            const nestedTree = buildNestedList(block.listItems);
+            content = renderNestedList(nestedTree, Boolean(block.ordered), block.id);
+          } else {
+            const List = block.ordered ? "ol" : "ul";
+            content = <List>{block.items?.map((item, i) => <li key={`${item}-${i}`} className={block.checked?.[i] !== null ? "check-item" : ""}>{block.checked?.[i] !== null && <span aria-hidden="true" className={block.checked?.[i] ? "checked" : ""}/>}<span>{inline(item)}</span></li>)}</List>;
+          }
         } else if (block.type === "table") {
           content = <div className="table-scroll"><table><thead><tr>{block.rows?.[0]?.map((cell) => <th key={cell}>{inline(cell)}</th>)}</tr></thead><tbody>{block.rows?.slice(1).map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j}>{inline(cell)}</td>)}</tr>)}</tbody></table></div>;
         } else if (block.type === "image") {
@@ -141,4 +146,50 @@ function safeLink(value: string) {
 function safeImage(value: string) {
   if (value.startsWith("/media/") || value.startsWith("/api/media/")) return value;
   return "";
+}
+
+type NestedListItem = {
+  text: string;
+  checked: boolean | null;
+  children: NestedListItem[];
+};
+
+function buildNestedList(listItems: Array<{ text: string; depth: number; checked: boolean | null }>) {
+  const root: NestedListItem[] = [];
+  const stack: Array<{ item: NestedListItem; depth: number }> = [];
+
+  for (const item of listItems) {
+    const nested: NestedListItem = { text: item.text, checked: item.checked, children: [] };
+    while (stack.length > 0 && stack[stack.length - 1].depth >= item.depth) {
+      stack.pop();
+    }
+    if (stack.length === 0) {
+      root.push(nested);
+    } else {
+      stack[stack.length - 1].item.children.push(nested);
+    }
+    stack.push({ item: nested, depth: item.depth });
+  }
+  return root;
+}
+
+function renderNestedList(items: NestedListItem[], ordered: boolean, parentIndex: string): ReactNode {
+  if (items.length === 0) return null;
+  const List = ordered ? "ol" : "ul";
+  return (
+    <List>
+      {items.map((item, i) => {
+        const key = `${parentIndex}-${i}`;
+        return (
+          <li key={key} className={item.checked !== null ? "check-item" : ""}>
+            {item.checked !== null && (
+              <span aria-hidden="true" className={item.checked ? "checked" : ""} />
+            )}
+            <span>{inline(item.text)}</span>
+            {item.children.length > 0 && renderNestedList(item.children, ordered, key)}
+          </li>
+        );
+      })}
+    </List>
+  );
 }

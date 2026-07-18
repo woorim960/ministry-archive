@@ -38,4 +38,5 @@ export type MarkdownBlock = {
   url?: string;
   rows?: string[][];
   tone?: "red" | "blue" | "green" | "amber" | "violet" | "neutral";
+  listItems?: Array<{ text: string; depth: number; checked: boolean | null }>;
 };

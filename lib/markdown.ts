@@ -1,7 +1,7 @@
 import type { MarkdownBlock } from "@/types/content";
 
 function isBlockStart(line: string) {
-  return /^(#{2,4})\s+/.test(line) || /^```/.test(line) || /^:::note\[/.test(line) || /^>/.test(line) || /^([-*]\s+|\d+\.\s+)/.test(line) || /^---+$/.test(line) || /^!\[/.test(line) || /^@youtube\[/.test(line) || /^\|/.test(line);
+  return /^(#{1,5})\s+/.test(line) || /^```/.test(line) || /^:::note\[/.test(line) || /^>/.test(line) || /^(?:\s*[-*]\s+|\s*\d+\.\s+)/.test(line) || /^---+$/.test(line) || /^!\[/.test(line) || /^@youtube\[/.test(line) || /^\|/.test(line);
 }
 
 export function parseMarkdown(markdown: string): MarkdownBlock[] {
@@ -18,7 +18,7 @@ export function parseMarkdown(markdown: string): MarkdownBlock[] {
     if (!line.trim()) { index += 1; continue; }
     const startLine = index;
 
-    const heading = line.match(/^(#{2,4})\s+(.+)$/);
+    const heading = line.match(/^(#{1,5})\s+(.+)$/);
     if (heading) {
       push({ type: "heading", raw: line, startLine, endLine: index, level: heading[1].length, text: heading[2].trim() });
       index += 1;
@@ -87,20 +87,29 @@ export function parseMarkdown(markdown: string): MarkdownBlock[] {
       continue;
     }
 
-    if (/^([-*]\s+|\d+\.\s+)/.test(line)) {
-      const ordered = /^\d+\.\s+/.test(line);
+    const listPattern = /^(\s*)([-*]|\d+\.)\s*(.*)$/;
+    if (listPattern.test(line)) {
+      const ordered = /^\s*\d+\./.test(line);
       const items: string[] = [];
       const checked: Array<boolean | null> = [];
-      const expression = ordered ? /^\d+\.\s+(.+)$/ : /^[-*]\s+(.+)$/;
+      const listItems: Array<{ text: string; depth: number; checked: boolean | null }> = [];
       while (index < lines.length) {
-        const match = lines[index].match(expression);
+        const currentLine = lines[index];
+        const match = currentLine.match(listPattern);
         if (!match) break;
-        const check = match[1].match(/^\[([ xX])\]\s+(.+)$/);
-        items.push(check ? check[2] : match[1]);
-        checked.push(check ? check[1].toLowerCase() === "x" : null);
+        const indentStr = match[1] || "";
+        const spaceCount = indentStr.replace(/\t/g, "  ").length;
+        const depth = Math.floor(spaceCount / 2);
+        const content = match[3] || "";
+        const check = content.match(/^\[([ xX])\]\s+(.*)$/);
+        const itemText = check ? check[2] : content;
+        const isChecked = check ? check[1].toLowerCase() === "x" : null;
+        items.push(itemText);
+        checked.push(isChecked);
+        listItems.push({ text: itemText, depth, checked: isChecked });
         index += 1;
       }
-      push({ type: "list", raw: lines.slice(startLine, index).join("\n"), startLine, endLine: index - 1, ordered, items, checked });
+      push({ type: "list", raw: lines.slice(startLine, index).join("\n"), startLine, endLine: index - 1, ordered, items, checked, listItems });
       continue;
     }
 

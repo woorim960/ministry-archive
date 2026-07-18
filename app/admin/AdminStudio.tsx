@@ -62,7 +62,6 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   const [notice, setNotice] = useState("빈 초안도 바로 저장할 수 있습니다.");
   const [uploading, setUploading] = useState(false);
   const [mobileTab, setMobileTab] = useState<"write" | "preview">("write");
-  const [showSettings, setShowSettings] = useState(false);
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
   const [palette, setPalette] = useState<PaletteKind>(null);
@@ -172,6 +171,23 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   function rememberSelection() {
     const textarea = textareaRef.current;
     if (textarea) setSelection({ start: textarea.selectionStart, end: textarea.selectionEnd });
+  }
+
+  function handleTextareaKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const textarea = event.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const val = textarea.value;
+      const next = val.substring(0, start) + "  " + val.substring(end);
+      update("markdown", next);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + 2, start + 2);
+        rememberSelection();
+      });
+    }
   }
 
   function wrapSelection(before: string, after: string, fallback = "텍스트") {
@@ -312,6 +328,9 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       if (activeKeyRef.current === savingKey) { activateDraft(resource, "saved"); setTagInput(""); }
       const time = new Intl.DateTimeFormat("ko-KR", { hour: "numeric", minute: "2-digit" }).format(new Date());
       setSavedAt(time); setNotice(mode === "publish" ? "기획서가 공개되었습니다." : publishState ? "저장한 내용이 공개 글에 반영되었습니다." : "초안이 저장되었습니다.");
+      if (mode === "publish") {
+        window.location.href = `/documents/${resource.slug}`;
+      }
       return true;
     } catch {
       if (activeKeyRef.current === savingKey) setSavePhase("error");
@@ -409,7 +428,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
           <button type="button" className="has-tip focus-mode-control" data-help={focusMode ? "이전에 보던 패널 구성을 다시 엽니다." : "목록과 미리보기를 한 번에 접고 편집창만 봅니다."} aria-label={focusMode ? "집중 모드 종료" : "집중 모드 시작"} aria-pressed={focusMode} onClick={toggleFocusMode}><FocusIcon size={17}/><span>{focusMode ? "복원" : "집중"}</span></button>
         </div>
         <div className="mobile-editor-tabs"><button className={mobileTab === "write" ? "active" : ""} onClick={() => setMobileTab("write")}>작성</button><button className={mobileTab === "preview" ? "active" : ""} onClick={() => setMobileTab("preview")}>미리보기</button></div>
-        <div className="studio-actions"><button type="button" onClick={() => setShowSettings((value) => !value)}>문서 정보</button><button type="button" onClick={() => void save("save")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "저장 및 반영" : "저장"}</button><button className="publish-button" type="button" onClick={() => void save("publish")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "공개됨" : "공개하기"} <ArrowIcon size={17}/></button></div>
+        <div className="studio-actions"><button type="button" onClick={() => void save("save")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "저장 및 반영" : "저장"}</button><button className="publish-button" type="button" onClick={() => void save("publish")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "공개됨" : "공개하기"} <ArrowIcon size={17}/></button></div>
       </div>
 
       <div className="mobile-save-state"><span className={`state-${savePhase}`}/><b>{statusText}</b><small>{notice}</small></div>
@@ -437,7 +456,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
             </div>
           </div>
 
-          {showSettings && <div className="additional-settings"><label>대상<input value={draft.audience} onChange={(event) => update("audience", event.target.value)} placeholder="예: 주일학교"/></label><label>진행 시간<input value={draft.duration} onChange={(event) => update("duration", event.target.value)} placeholder="예: 50분"/></label><label>권장 인원<input value={draft.participants || ""} onChange={(event) => update("participants", event.target.value)} placeholder="예: 팀별 4–8명"/></label><label>문서 주소<input value={draft.slug} onChange={(event) => update("slug", slugify(event.target.value))} placeholder="제목에서 자동 생성"/></label></div>}
+
 
           <div className="markdown-toolbar" role="toolbar" aria-label="기획서 서식">
             <div className="toolbar-guide"><b>{selection.end > selection.start ? "선택한 글자에 효과를 적용합니다." : "글자를 드래그한 뒤 효과를 선택하세요."}</b><small>각 버튼에 마우스를 올리면 사용법이 표시됩니다.</small></div>
@@ -467,7 +486,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
           </div>
 
           <div className="markdown-editor-wrap" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (event.dataTransfer.files.length) uploadFiles(event.dataTransfer.files); }}>
-            <textarea ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} value={draft.markdown} onChange={(event) => update("markdown", event.target.value)} onSelect={rememberSelection} onKeyUp={rememberSelection} onMouseUp={rememberSelection} spellCheck placeholder="Markdown으로 기획서를 작성하세요." aria-label="기획서 본문 Markdown"/>
+            <textarea ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} value={draft.markdown} onChange={(event) => update("markdown", event.target.value)} onSelect={rememberSelection} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onKeyDown={handleTextareaKeyDown} spellCheck placeholder="Markdown으로 기획서를 작성하세요." aria-label="기획서 본문 Markdown"/>
             {fieldErrors.markdown && <small className="editor-error">{fieldErrors.markdown}</small>}
             <div className="drop-guidance"><span>이미지를 문장 사이에 끌어 놓으세요.</span><small>JPG · PNG · WEBP, 최대 8MB</small></div>
           </div>
