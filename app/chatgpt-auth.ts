@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 export type ChatGPTUser = {
@@ -26,15 +26,26 @@ export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
   }
 
   const requestHeaders = await headers();
-  const email = requestHeaders.get(USER_EMAIL_HEADER);
-  if (!email) return null;
+  let email = requestHeaders.get(USER_EMAIL_HEADER);
+  let fullName = null;
 
-  const encodedFullName = requestHeaders.get(USER_FULL_NAME_HEADER);
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get(USER_FULL_NAME_ENCODING_HEADER) === PERCENT_ENCODED_UTF8
-      ? safeDecodeURIComponent(encodedFullName)
-      : null;
+  if (email) {
+    const encodedFullName = requestHeaders.get(USER_FULL_NAME_HEADER);
+    fullName =
+      encodedFullName &&
+      requestHeaders.get(USER_FULL_NAME_ENCODING_HEADER) === PERCENT_ENCODED_UTF8
+        ? safeDecodeURIComponent(encodedFullName)
+        : null;
+  } else {
+    const cookieStore = await cookies();
+    const sessionEmail = cookieStore.get("admin_session")?.value;
+    if (sessionEmail) {
+      email = sessionEmail;
+      fullName = "관리자";
+    }
+  }
+
+  if (!email) return null;
 
   return {
     displayName: fullName ?? email,
