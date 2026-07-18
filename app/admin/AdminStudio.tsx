@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { BrandMark } from "@/components/BrandMark";
 import { ArrowIcon, FocusIcon, ImageIcon, PanelLeftIcon, PanelRightIcon, PlusIcon, ToggleIcon, VideoIcon } from "@/components/Icons";
 import { DocumentReader } from "@/components/DocumentReader";
@@ -77,9 +77,10 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   const titleRef = useRef<HTMLInputElement>(null);
   const editorPanelRef = useRef<HTMLDivElement>(null);
   const previewScrollRef = useRef<HTMLDivElement>(null);
+  const toolbarViewportRef = useRef<HTMLDivElement>(null);
   const saveInFlight = useRef(false);
   const activeKeyRef = useRef(draft.clientKey);
-  const toolbarDrag = useRef({ active: false, startX: 0, startScrollLeft: 0 });
+  const toolbarDrag = useRef({ active: false, startX: 0, startScrollLeft: 0, dragged: false });
   const previousWorkspaceView = useRef({ left: true, right: true });
   const [workspaceViewLoaded, setWorkspaceViewLoaded] = useState(false);
   const previewDoc = useMemo<ResourceSummary>(() => ({
@@ -89,6 +90,20 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     markdown: draft.markdown || "",
     tags: normalizeTags([...draft.tags, tagInput]),
   }), [draft, tagInput]);
+
+  useEffect(() => {
+    const viewport = toolbarViewportRef.current;
+    if (!viewport) return;
+    function handleWheel(event: WheelEvent) {
+      if (viewport.scrollWidth <= viewport.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+      event.preventDefault();
+      viewport.scrollLeft += event.deltaY;
+    }
+    viewport.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      viewport.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
 
   useEffect(() => {
     loadSaved();
@@ -211,12 +226,44 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     const source = draft.markdown || "";
     const selected = source.slice(start, end) || fallback;
     if (selected.includes("\n")) { setNotice("인라인 서식은 한 문단 안의 텍스트에 적용해 주세요."); return; }
-    update("markdown", `${source.slice(0, start)}${before}${selected}${after}${source.slice(end)}`);
+
+    const hasOuterWrap = start >= before.length && 
+      source.slice(start - before.length, start) === before &&
+      source.slice(end, end + after.length) === after;
+
+    if (hasOuterWrap) {
+      const next = source.slice(0, start - before.length) + selected + source.slice(end + after.length);
+      update("markdown", next);
+      setPalette(null);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start - before.length, end - before.length);
+        setSelection({ start: start - before.length, end: end - before.length });
+      });
+      return;
+    }
+
+    const hasInnerWrap = selected.startsWith(before) && selected.endsWith(after);
+    if (hasInnerWrap) {
+      const unwrapped = selected.slice(before.length, selected.length - after.length);
+      const next = source.slice(0, start) + unwrapped + source.slice(end);
+      update("markdown", next);
+      setPalette(null);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start, start + unwrapped.length);
+        setSelection({ start: start, end: start + unwrapped.length });
+      });
+      return;
+    }
+
+    const next = `${source.slice(0, start)}${before}${selected}${after}${source.slice(end)}`;
+    update("markdown", next);
     setPalette(null);
     requestAnimationFrame(() => {
       textarea.focus();
-      textarea.setSelectionRange(start + before.length, start + before.length + selected.length);
-      setSelection({ start: start + before.length, end: start + before.length + selected.length });
+      textarea.setSelectionRange(start + before.length, end + before.length);
+      setSelection({ start: start + before.length, end: end + before.length });
     });
   }
 
@@ -230,6 +277,25 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     const selected = source.slice(start, end) || (kind === "toggle" ? "펼쳐볼 제목\n안쪽 내용을 입력하세요." : "내용");
     const prefix = kind === "heading" ? "## " : kind === "list" ? "- " : kind === "quote" ? "| " : "> ";
     const cleanLines = selected.split("\n").map((line) => line.replace(/^(?:## |- |\| |> | {2})/, ""));
+
+    const lines = selected.split("\n");
+    const isHeading = kind === "heading" && lines.every((l) => l.startsWith("## "));
+    const isList = kind === "list" && lines.every((l) => l.startsWith("- "));
+    const isQuote = kind === "quote" && lines.every((l) => l.startsWith("| "));
+    const isToggle = kind === "toggle" && lines[0].startsWith("> ") && lines.slice(1).every((l) => l.startsWith("  "));
+    const isApplied = isHeading || isList || isQuote || isToggle;
+
+    if (isApplied) {
+      const transformed = cleanLines.join("\n");
+      update("markdown", `${source.slice(0, start)}${transformed}${source.slice(end)}`);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start, start + transformed.length);
+        rememberSelection();
+      });
+      return;
+    }
+
     const transformed = kind === "toggle"
       ? [`> ${cleanLines[0] || "펼쳐볼 제목"}`, ...((cleanLines.slice(1).length ? cleanLines.slice(1) : ["안쪽 내용을 입력하세요."]).map((line) => `  ${line}`))].join("\n")
       : cleanLines.map((line) => `${prefix}${line}`).join("\n");
@@ -388,13 +454,17 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   }
 
   function startToolbarDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.button !== 0 || (event.target as HTMLElement).closest("button, label, input")) return;
-    toolbarDrag.current = { active: true, startX: event.clientX, startScrollLeft: event.currentTarget.scrollLeft };
+    if (event.button !== 0 || (event.target as HTMLElement).closest("input")) return;
+    toolbarDrag.current = { active: true, startX: event.clientX, startScrollLeft: event.currentTarget.scrollLeft, dragged: false };
     event.currentTarget.setPointerCapture(event.pointerId);
     event.currentTarget.classList.add("is-dragging");
   }
   function moveToolbarDrag(event: ReactPointerEvent<HTMLDivElement>) {
     if (!toolbarDrag.current.active) return;
+    const diff = Math.abs(event.clientX - toolbarDrag.current.startX);
+    if (diff > 5) {
+      toolbarDrag.current.dragged = true;
+    }
     event.preventDefault();
     event.currentTarget.scrollLeft = toolbarDrag.current.startScrollLeft - (event.clientX - toolbarDrag.current.startX);
   }
@@ -402,12 +472,15 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     toolbarDrag.current.active = false;
     event.currentTarget.classList.remove("is-dragging");
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    setTimeout(() => {
+      toolbarDrag.current.dragged = false;
+    }, 50);
   }
-  function wheelToolbar(event: ReactWheelEvent<HTMLDivElement>) {
-    const viewport = event.currentTarget;
-    if (viewport.scrollWidth <= viewport.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
-    event.preventDefault();
-    viewport.scrollLeft += event.deltaY;
+  function handleToolbarClickCapture(event: React.MouseEvent<HTMLDivElement>) {
+    if (toolbarDrag.current.dragged) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
   }
 
   const focusMode = !leftPanelOpen && !rightPanelOpen;
@@ -473,7 +546,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
 
           <div className="markdown-toolbar" role="toolbar" aria-label="기획서 서식">
             <div className="toolbar-guide"><b>{selection.end > selection.start ? "선택한 글자에 효과를 적용합니다." : "글자를 드래그한 뒤 효과를 선택하세요."}</b><small>각 버튼에 마우스를 올리면 사용법이 표시됩니다.</small></div>
-            <div className="toolbar-groups-viewport" aria-label="서식 도구 가로 스크롤" onPointerDown={startToolbarDrag} onPointerMove={moveToolbarDrag} onPointerUp={endToolbarDrag} onPointerCancel={endToolbarDrag} onWheel={wheelToolbar}><div className="toolbar-groups">
+            <div ref={toolbarViewportRef} className="toolbar-groups-viewport" aria-label="서식 도구 가로 스크롤" onPointerDown={startToolbarDrag} onPointerMove={moveToolbarDrag} onPointerUp={endToolbarDrag} onPointerCancel={endToolbarDrag} onClickCapture={handleToolbarClickCapture}><div className="toolbar-groups">
               <div className="toolbar-group toolbar-text-group"><span>글자 효과</span>
                 <button type="button" className="has-tip format-strong" data-help="선택한 글자를 굵게 강조합니다. 문법: **글자**" title="선택한 글자를 굵게 강조합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("**", "**")}>B</button>
                 <button type="button" className="has-tip format-em" data-help="선택한 글자를 기울여 표시합니다. 문법: _글자_" title="선택한 글자를 기울여 표시합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("_", "_")}>I</button>
