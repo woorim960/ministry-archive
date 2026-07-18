@@ -498,38 +498,81 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     return current;
   }
 
+  /**
+   * Finds the bounds of a {{color:...|...}} or {{bg:...|...}} wrapper that
+   * either contains the current selection, or that the selection sits inside.
+   */
+  function findColorWrap(source: string, start: number, end: number, type: "color" | "bg"): { wrapStart: number; wrapEnd: number; innerText: string } | null {
+    const prefix = type === "color" ? "{{color:" : "{{bg:";
+
+    // Case A: selection is entirely INSIDE a wrapper (most common after applying)
+    // e.g. source = "...{{color:red|foo}}..." and selection = {start: X+14, end: X+17} pointing at "foo"
+    const textBefore = source.slice(0, start);
+    const lastOpenIdx = textBefore.lastIndexOf(prefix);
+    if (lastOpenIdx !== -1) {
+      const pipeIdx = source.indexOf("|", lastOpenIdx);
+      if (pipeIdx !== -1 && pipeIdx < start) {
+        // There's an opening marker before our selection; check for closing }}
+        const closeIdx = source.indexOf("}}", end);
+        // Make sure there is no new {{ between our selection end and the found }}
+        if (closeIdx !== -1 && !source.slice(end, closeIdx).includes("{{")) {
+          const innerText = source.slice(pipeIdx + 1, closeIdx);
+          return { wrapStart: lastOpenIdx, wrapEnd: closeIdx + 2, innerText };
+        }
+      }
+    }
+
+    // Case B: selection itself fully wraps the pattern e.g. user selected the whole "{{color:red|foo}}"
+    const sel = source.slice(start, end);
+    const fullRe = new RegExp(`^\\{\\{${type}:[^|]+\\|(.+?)\\}\\}$`);
+    const fullMatch = sel.match(fullRe);
+    if (fullMatch) return { wrapStart: start, wrapEnd: end, innerText: fullMatch[1] };
+
+    // Case C: selection contains a wrapper somewhere inside it
+    if (new RegExp(`\\{\\{${type}:[^|]+\\|`).test(sel)) {
+      const innerText = sel.replace(/\{\{(?:color|bg):[^|]+\|(.+?)\}\}/g, "$1");
+      return { wrapStart: start, wrapEnd: end, innerText };
+    }
+
+    return null;
+  }
+
   function handlePaletteColor() {
     const source = draft.markdown || "";
-    const sel = source.slice(selection.start, selection.end);
-    if (selection.start !== selection.end && /\{\{color:[^|]+\|/.test(sel)) {
-      const stripped = sel.replace(/\{\{(?:color|bg):[^|]+\|(.+?)\}\}/g, "$1");
-      const next = source.slice(0, selection.start) + stripped + source.slice(selection.end);
-      update("markdown", next);
-      setPalette(null);
-      requestAnimationFrame(() => {
-        textareaRef.current?.focus();
-        textareaRef.current?.setSelectionRange(selection.start, selection.start + stripped.length);
-        setSelection({ start: selection.start, end: selection.start + stripped.length });
-      });
-      return;
+    const { start, end } = selection;
+    if (start !== end) {
+      const wrap = findColorWrap(source, start, end, "color");
+      if (wrap) {
+        const next = source.slice(0, wrap.wrapStart) + wrap.innerText + source.slice(wrap.wrapEnd);
+        update("markdown", next);
+        setPalette(null);
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+          textareaRef.current?.setSelectionRange(wrap.wrapStart, wrap.wrapStart + wrap.innerText.length);
+          setSelection({ start: wrap.wrapStart, end: wrap.wrapStart + wrap.innerText.length });
+        });
+        return;
+      }
     }
     setPalette(palette === "text" ? null : "text");
   }
 
   function handlePaletteBg() {
     const source = draft.markdown || "";
-    const sel = source.slice(selection.start, selection.end);
-    if (selection.start !== selection.end && /\{\{bg:[^|]+\|/.test(sel)) {
-      const stripped = sel.replace(/\{\{(?:color|bg):[^|]+\|(.+?)\}\}/g, "$1");
-      const next = source.slice(0, selection.start) + stripped + source.slice(selection.end);
-      update("markdown", next);
-      setPalette(null);
-      requestAnimationFrame(() => {
-        textareaRef.current?.focus();
-        textareaRef.current?.setSelectionRange(selection.start, selection.start + stripped.length);
-        setSelection({ start: selection.start, end: selection.start + stripped.length });
-      });
-      return;
+    const { start, end } = selection;
+    if (start !== end) {
+      const wrap = findColorWrap(source, start, end, "bg");
+      if (wrap) {
+        const next = source.slice(0, wrap.wrapStart) + wrap.innerText + source.slice(wrap.wrapEnd);
+        update("markdown", next);
+        setPalette(null);
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+          textareaRef.current?.setSelectionRange(wrap.wrapStart, wrap.wrapStart + wrap.innerText.length);
+          setSelection({ start: wrap.wrapStart, end: wrap.wrapStart + wrap.innerText.length });
+        });
+        return;
+      }
     }
     setPalette(palette === "background" ? null : "background");
   }
