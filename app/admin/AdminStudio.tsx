@@ -200,41 +200,52 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     const textarea = textareaRef.current;
     if (!editor || !preview) return;
 
+    // ── Line-based sync ──────────────────────────────────────────────────────
+    // editor-panel scrolls the whole section: [metadata] + [toolbar(sticky)] + [textarea]
+    // We need the scroll position *within the textarea content* only.
     if (textarea) {
-      // Determine which source line is at the top of the visible textarea area
       const source = draft.markdown || "";
       const totalLines = (source.match(/\n/g)?.length ?? 0) + 1;
-      if (totalLines > 1 && textarea.scrollHeight > textarea.clientHeight) {
-        const lineHeight = textarea.scrollHeight / totalLines;
-        const topLine = Math.floor(editor.scrollTop / lineHeight);
 
-        // Find all [data-source-line] blocks in the preview
-        const blocks = Array.from(
-          preview.querySelectorAll<HTMLElement>("[data-source-line]")
-        );
-        if (blocks.length > 0) {
-          // Find the block whose startLine is closest to (but not exceeding) topLine
-          let best = blocks[0];
-          for (const block of blocks) {
-            const blockLine = Number(block.dataset.sourceLine);
-            if (blockLine <= topLine) best = block;
-            else break;
-          }
-          // Scroll the preview so that matching block sits at the top of the viewport
-          const previewContainerTop = preview.getBoundingClientRect().top;
-          const blockTop = best.getBoundingClientRect().top;
-          preview.scrollTop += blockTop - previewContainerTop;
-          return;
+      // Compute the real line-height from CSS (font-size 13px, line-height 1.85)
+      const computed = window.getComputedStyle(textarea);
+      const lineHeightPx = parseFloat(computed.lineHeight) || 13 * 1.85;
+
+      // How far down the textarea starts inside the editor-panel
+      const textareaOffsetTop = textarea.offsetTop; // distance from editor-panel top
+
+      // How many pixels of the textarea have scrolled past the top of the editor-panel viewport?
+      // (clamp to 0 so we don't go negative when metadata is still visible)
+      const scrollWithinTextarea = Math.max(0, editor.scrollTop - textareaOffsetTop);
+
+      // Estimate which source line is at the top of the editor viewport
+      const topLine = Math.floor(scrollWithinTextarea / lineHeightPx);
+
+      // Find [data-source-line] blocks in the preview, pick the one whose
+      // startLine is the largest value that is still ≤ topLine
+      const blocks = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
+      if (blocks.length > 0 && totalLines > 1) {
+        let best = blocks[0];
+        for (const block of blocks) {
+          if (Number(block.dataset.sourceLine) <= topLine) best = block;
+          else break;
         }
+
+        // Scroll preview so that best block lands at the very top of the preview viewport
+        // best.offsetTop is relative to the preview's scrollable content root
+        const contentRoot = preview.querySelector<HTMLElement>(".markdown-body");
+        const rootOffset = contentRoot ? contentRoot.offsetTop : 0;
+        const targetScroll = best.offsetTop - rootOffset;
+        preview.scrollTop = Math.max(0, targetScroll);
+        return;
       }
     }
 
-    // Fallback: ratio-based
+    // ── Fallback: ratio-based (for very short content) ───────────────────────
     const editorScrollHeight = editor.scrollHeight - editor.clientHeight;
     if (editorScrollHeight <= 0) return;
     const scrollRatio = editor.scrollTop / editorScrollHeight;
-    const previewScrollHeight = preview.scrollHeight - preview.clientHeight;
-    preview.scrollTop = scrollRatio * previewScrollHeight;
+    preview.scrollTop = scrollRatio * (preview.scrollHeight - preview.clientHeight);
   }
 
 
