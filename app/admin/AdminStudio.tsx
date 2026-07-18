@@ -243,6 +243,12 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     const preview = previewScrollRef.current;
     if (!textarea || !preview || !editor) return;
 
+    // 편집창 전체 스크롤이 최상단일 경우 미리보기도 최상단으로 (제목과 동기화)
+    if (editor.scrollTop === 0) {
+      preview.scrollTo({ top: 0 });
+      return;
+    }
+
     const source = draft.markdown || "";
     if ((source.match(/\n/g)?.length ?? 0) < 1) return;
 
@@ -298,14 +304,26 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       const textarea = event.currentTarget;
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
-      const val = textarea.value;
-      const next = val.substring(0, start) + "  " + val.substring(end);
-      update("markdown", next);
-      requestAnimationFrame(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start + 2, start + 2);
-        rememberSelection();
-      });
+      textarea.setSelectionRange(start, end);
+      document.execCommand("insertText", false, "  ");
+      return;
+    }
+
+    const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+    const cmd = isMac ? event.metaKey : event.ctrlKey;
+
+    if (cmd && !event.shiftKey && !event.altKey) {
+      if (event.key.toLowerCase() === "b") { event.preventDefault(); wrapSelection("**", "**"); return; }
+      if (event.key.toLowerCase() === "i") { event.preventDefault(); wrapSelection("_", "_"); return; }
+      if (event.key.toLowerCase() === "e") { event.preventDefault(); wrapSelection("`", "`"); return; }
+    }
+    if (cmd && event.shiftKey && !event.altKey) {
+      if (event.key.toLowerCase() === "x") { event.preventDefault(); wrapSelection("~~", "~~"); return; }
+      if (event.key.toLowerCase() === "q") { event.preventDefault(); applyBlock("quote"); return; }
+      if (event.key === "8") { event.preventDefault(); applyBlock("list"); return; }
+    }
+    if (cmd && event.altKey && !event.shiftKey) {
+      if (event.key === "1" || event.key === "2") { event.preventDefault(); applyBlock("heading"); return; }
     }
   }
 
@@ -322,75 +340,52 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     const source = draft.markdown || "";
     const selected = source.slice(start, end) || fallback;
 
-    // For color/bg effects: strip any existing color wrap first, then re-apply new one
+    const execReplace = (rStart: number, rEnd: number, text: string, sStart: number, sEnd: number) => {
+      textarea.focus();
+      textarea.setSelectionRange(rStart, rEnd);
+      document.execCommand("insertText", false, text);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(sStart, sEnd);
+        rememberSelection();
+      });
+    };
+
     const isColorEffect = before.startsWith("{{color:") || before.startsWith("{{bg:");
     if (isColorEffect) {
       const stripped = stripColorWrap(selected);
-      // Check if the selection already had the exact same wrapper (toggle off)
-      const alreadyExact = hasOuterWrap(source, start, end, before, after) ||
-        (selected.startsWith(before) && selected.endsWith(after));
+      const alreadyExact = hasOuterWrap(source, start, end, before, after) || (selected.startsWith(before) && selected.endsWith(after));
       if (alreadyExact) {
-        // Remove the wrapper entirely
-        const clean = hasOuterWrap(source, start, end, before, after)
-          ? source.slice(0, start - before.length) + stripped + source.slice(end + after.length)
-          : source.slice(0, start) + stripped + source.slice(end);
-        const offset = alreadyExact && hasOuterWrap(source, start, end, before, after) ? -before.length : 0;
-        update("markdown", clean);
+        const hasOut = hasOuterWrap(source, start, end, before, after);
+        const rStart = hasOut ? start - before.length : start;
+        const rEnd = hasOut ? end + after.length : end;
+        const offset = hasOut ? -before.length : 0;
         setPalette(null);
-        requestAnimationFrame(() => {
-          textarea.focus();
-          textarea.setSelectionRange(start + offset, start + offset + stripped.length);
-          setSelection({ start: start + offset, end: start + offset + stripped.length });
-        });
+        execReplace(rStart, rEnd, stripped, start + offset, start + offset + stripped.length);
         return;
       }
-      // Strip existing color wrapper then apply new one
-      const next = source.slice(0, start) + `${before}${stripped}${after}` + source.slice(end);
-      update("markdown", next);
       setPalette(null);
-      requestAnimationFrame(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start + before.length, start + before.length + stripped.length);
-        setSelection({ start: start + before.length, end: start + before.length + stripped.length });
-      });
+      execReplace(start, end, `${before}${stripped}${after}`, start + before.length, start + before.length + stripped.length);
       return;
     }
 
     const hasOuter = hasOuterWrap(source, start, end, before, after);
     if (hasOuter) {
-      const next = source.slice(0, start - before.length) + selected + source.slice(end + after.length);
-      update("markdown", next);
       setPalette(null);
-      requestAnimationFrame(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start - before.length, end - before.length);
-        setSelection({ start: start - before.length, end: end - before.length });
-      });
+      execReplace(start - before.length, end + after.length, selected, start - before.length, end - before.length);
       return;
     }
 
     const hasInner = selected.startsWith(before) && selected.endsWith(after);
     if (hasInner) {
       const unwrapped = selected.slice(before.length, selected.length - after.length);
-      const next = source.slice(0, start) + unwrapped + source.slice(end);
-      update("markdown", next);
       setPalette(null);
-      requestAnimationFrame(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start, start + unwrapped.length);
-        setSelection({ start: start, end: start + unwrapped.length });
-      });
+      execReplace(start, end, unwrapped, start, start + unwrapped.length);
       return;
     }
 
-    const next = `${source.slice(0, start)}${before}${selected}${after}${source.slice(end)}`;
-    update("markdown", next);
     setPalette(null);
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + before.length, end + before.length);
-      setSelection({ start: start + before.length, end: end + before.length });
-    });
+    execReplace(start, end, `${before}${selected}${after}`, start + before.length, end + before.length);
   }
 
   function hasOuterWrap(source: string, start: number, end: number, before: string, after: string): boolean {
@@ -417,22 +412,27 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     const isToggle = kind === "toggle" && lines[0].startsWith("> ") && lines.slice(1).every((l) => l.startsWith("  "));
     const isApplied = isHeading || isList || isQuote || isToggle;
 
-    if (isApplied) {
-      const transformed = cleanLines.join("\n");
-      update("markdown", `${source.slice(0, start)}${transformed}${source.slice(end)}`);
+    const execReplace = (rStart: number, rEnd: number, text: string, sStart: number, sEnd: number) => {
+      textarea.focus();
+      textarea.setSelectionRange(rStart, rEnd);
+      document.execCommand("insertText", false, text);
       requestAnimationFrame(() => {
         textarea.focus();
-        textarea.setSelectionRange(start, start + transformed.length);
+        textarea.setSelectionRange(sStart, sEnd);
         rememberSelection();
       });
+    };
+
+    if (isApplied) {
+      const transformed = cleanLines.join("\n");
+      execReplace(start, end, transformed, start, start + transformed.length);
       return;
     }
 
     const transformed = kind === "toggle"
       ? [`> ${cleanLines[0] || "펼쳐볼 제목"}`, ...((cleanLines.slice(1).length ? cleanLines.slice(1) : ["안쪽 내용을 입력하세요."]).map((line) => `  ${line}`))].join("\n")
       : cleanLines.map((line) => `${prefix}${line}`).join("\n");
-    update("markdown", `${source.slice(0, start)}${transformed}${source.slice(end)}`);
-    requestAnimationFrame(() => { textarea.focus(); textarea.setSelectionRange(start + prefix.length, start + transformed.length); rememberSelection(); });
+    execReplace(start, end, transformed, start + prefix.length, start + transformed.length);
   }
 
   function insertYoutube() {
@@ -461,9 +461,16 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     const end = selection.end;
     const selected = source.slice(start, end).trim() || "현장에서 꼭 기억할 내용을 적어주세요.";
     const block = `:::note[${tone}] 진행자 참고\n${selected}\n:::`;
-    update("markdown", `${source.slice(0, start)}${block}${source.slice(end)}`);
+    
     setPalette(null);
-    requestAnimationFrame(() => { textarea.focus(); textarea.setSelectionRange(start + block.length, start + block.length); rememberSelection(); });
+    textarea.focus();
+    textarea.setSelectionRange(start, end);
+    document.execCommand("insertText", false, block);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + block.length, start + block.length);
+      rememberSelection();
+    });
   }
 
   function commitTags(raw = tagInput) {
@@ -754,17 +761,17 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
             <div className="toolbar-guide"><b>{selection.end > selection.start ? "선택한 글자에 효과를 적용합니다." : "글자를 드래그한 뒤 효과를 선택하세요."}</b><small>각 버튼에 마우스를 올리면 사용법이 표시됩니다.</small></div>
             <div ref={toolbarCallbackRef} className="toolbar-groups-viewport" aria-label="서식 도구 가로 스크롤" onPointerDown={startToolbarDrag} onPointerMove={moveToolbarDrag} onPointerUp={endToolbarDrag} onPointerCancel={endToolbarDrag} onClickCapture={handleToolbarClickCapture}><div className="toolbar-groups">
               <div className="toolbar-group toolbar-text-group"><span>글자 효과</span>
-                <button type="button" className="has-tip format-strong" data-help="선택한 글자를 굵게 강조합니다. 문법: **글자**" title="선택한 글자를 굵게 강조합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("**", "**")}>B</button>
-                <button type="button" className="has-tip format-em" data-help="선택한 글자를 기울여 표시합니다. 문법: _글자_" title="선택한 글자를 기울여 표시합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("_", "_")}>I</button>
-                <button type="button" className="has-tip format-strike" data-help="선택한 글자에 취소선을 긋습니다. 문법: ~~글자~~" title="선택한 글자에 취소선을 긋습니다." onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("~~", "~~")}>S</button>
-                <button type="button" className="has-tip" data-help="선택한 글자를 붉은 박스로 강조합니다. 문법: `글자`" title="선택한 글자를 붉은 박스로 강조합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("`", "`")}>강조</button>
+                <button type="button" className="has-tip format-strong" data-help="선택한 글자를 굵게 강조합니다. (Cmd/Ctrl+B) 문법: **글자**" title="선택한 글자를 굵게 강조합니다. (Cmd/Ctrl+B)" onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("**", "**")}>B</button>
+                <button type="button" className="has-tip format-em" data-help="선택한 글자를 기울여 표시합니다. (Cmd/Ctrl+I) 문법: _글자_" title="선택한 글자를 기울여 표시합니다. (Cmd/Ctrl+I)" onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("_", "_")}>I</button>
+                <button type="button" className="has-tip format-strike" data-help="선택한 글자에 취소선을 긋습니다. (Cmd/Ctrl+Shift+X) 문법: ~~글자~~" title="선택한 글자에 취소선을 긋습니다. (Cmd/Ctrl+Shift+X)" onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("~~", "~~")}>S</button>
+                <button type="button" className="has-tip" data-help="선택한 글자를 붉은 박스로 강조합니다. (Cmd/Ctrl+E) 문법: `글자`" title="선택한 글자를 붉은 박스로 강조합니다. (Cmd/Ctrl+E)" onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("`", "`")}>강조</button>
                 <button type="button" className="has-tip" data-help="선택한 글자의 색을 지정합니다." title="선택한 글자의 색을 지정합니다." onMouseDown={(event) => event.preventDefault()} onClick={handlePaletteColor}>글자색</button>
                 <button type="button" className="has-tip" data-help="선택한 글자 뒤에 배경색을 넣습니다." title="선택한 글자 뒤에 배경색을 넣습니다." onMouseDown={(event) => event.preventDefault()} onClick={handlePaletteBg}>배경색</button>
               </div>
               <div className="toolbar-group toolbar-block-group"><span>문단</span>
-                <button type="button" className="has-tip" data-help="현재 문단을 큰 제목으로 바꿉니다. 문법: ## 제목" title="현재 문단을 큰 제목으로 바꿉니다." onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("heading")}>제목</button>
-                <button type="button" className="has-tip" data-help="선택한 여러 줄을 목록으로 바꿉니다. 문법: - 항목" title="선택한 여러 줄을 목록으로 바꿉니다." onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("list")}>목록</button>
-                <button type="button" className="has-tip" data-help="현재 문단을 인용문으로 바꿉니다. 각 줄 앞에 |가 붙습니다." title="현재 문단을 인용문으로 바꿉니다." onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("quote")}>인용</button>
+                <button type="button" className="has-tip" data-help="현재 문단을 큰 제목으로 바꿉니다. (Cmd/Ctrl+Alt+1) 문법: ## 제목" title="현재 문단을 큰 제목으로 바꿉니다. (Cmd/Ctrl+Alt+1)" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("heading")}>제목</button>
+                <button type="button" className="has-tip" data-help="선택한 여러 줄을 목록으로 바꿉니다. (Cmd/Ctrl+Shift+8) 문법: - 항목" title="선택한 여러 줄을 목록으로 바꿉니다. (Cmd/Ctrl+Shift+8)" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("list")}>목록</button>
+                <button type="button" className="has-tip" data-help="현재 문단을 인용문으로 바꿉니다. (Cmd/Ctrl+Shift+Q) 각 줄 앞에 |가 붙습니다." title="현재 문단을 인용문으로 바꿉니다. (Cmd/Ctrl+Shift+Q)" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("quote")}>인용</button>
                 <button type="button" className="has-tip toggle-tool" data-help={"접고 펴는 블록을 자동으로 만듭니다.\n> 펼쳐볼 제목\n  안쪽 내용 (앞에 공백 2칸)"} title="첫 줄에 > 제목을 쓰고, 다음 줄부터 두 칸 들여쓰기해 내용을 작성합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("toggle")}><ToggleIcon size={16}/>접기·펼치기</button>
               </div>
               <div className="toolbar-group toolbar-insert-group"><span>삽입</span>
