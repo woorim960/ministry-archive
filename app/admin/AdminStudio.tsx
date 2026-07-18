@@ -75,6 +75,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   const [mobileLibraryOpen, setMobileLibraryOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const editorPanelRef = useRef<HTMLDivElement>(null);
+  const previewScrollRef = useRef<HTMLDivElement>(null);
   const saveInFlight = useRef(false);
   const activeKeyRef = useRef(draft.clientKey);
   const toolbarDrag = useRef({ active: false, startX: 0, startScrollLeft: 0 });
@@ -171,6 +173,17 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   function rememberSelection() {
     const textarea = textareaRef.current;
     if (textarea) setSelection({ start: textarea.selectionStart, end: textarea.selectionEnd });
+  }
+
+  function handleEditorScroll() {
+    const editor = editorPanelRef.current;
+    const preview = previewScrollRef.current;
+    if (!editor || !preview) return;
+    const editorScrollHeight = editor.scrollHeight - editor.clientHeight;
+    if (editorScrollHeight <= 0) return;
+    const scrollRatio = editor.scrollTop / editorScrollHeight;
+    const previewScrollHeight = preview.scrollHeight - preview.clientHeight;
+    preview.scrollTop = scrollRatio * previewScrollHeight;
   }
 
   function handleTextareaKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -446,7 +459,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
           {savedDocuments.map(({ document: item, savedDocument, hasUnsavedChanges }) => <button type="button" className={`document-row ${hasUnsavedChanges ? "working" : ""} ${draft.clientKey === item.clientKey ? "selected" : ""}`} onClick={() => openSaved(item)} key={item.clientKey}><small>{hasUnsavedChanges ? <><i/>수정 중</> : savedDocument.isPublished ? "공개" : "초안"}</small><strong>{item.title || "제목 없는 기획서"}</strong><span>{savedDocument.updatedAt?.slice(0, 10)}</span></button>)}
         </aside>
 
-        <section className={`editor-panel ${mobileTab === "write" ? "mobile-active" : ""}`}>
+        <section ref={editorPanelRef} className={`editor-panel ${mobileTab === "write" ? "mobile-active" : ""}`} onScroll={handleEditorScroll}>
           <div className="editor-metadata">
             <label className={fieldErrors.title ? "has-error" : ""}><span>제목</span><input ref={titleRef} value={draft.title} onChange={(event) => update("title", event.target.value)} placeholder="기획서 제목"/>{fieldErrors.title && <small>{fieldErrors.title}</small>}</label>
             <label className={fieldErrors.summary ? "has-error" : ""}><span>한 줄 소개</span><textarea value={draft.summary} onChange={(event) => update("summary", event.target.value)} placeholder="누가, 무엇을 위해 참고하면 좋은 기획인지 한 문장으로 설명해 주세요." rows={2}/>{fieldErrors.summary && <small>{fieldErrors.summary}</small>}</label>
@@ -494,7 +507,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
 
         <section id="preview-panel" className={`preview-panel ${mobileTab === "preview" ? "mobile-active" : ""}`} aria-label="실제 공개 화면 미리보기">
           <div className="preview-label"><span>실제 공개 화면<small>내용과 스타일이 그대로 공개됩니다.</small></span><button type="button" aria-label="미리보기 접기" aria-controls="preview-panel" aria-expanded="true" onClick={() => setRightPanelOpen(false)}><PanelRightIcon size={19}/></button></div>
-          <div className="preview-scroll"><DocumentReader document={previewDoc} preview onDropAt={(files, line) => uploadFiles(files, line)} onMoveBlock={(fromStart, fromEnd, targetLine) => update("markdown", moveMarkdownBlock(draft.markdown || "", fromStart, fromEnd, targetLine))}/></div>
+          <div ref={previewScrollRef} className="preview-scroll"><DocumentReader document={previewDoc} preview onDropAt={(files, line) => uploadFiles(files, line)} onMoveBlock={(fromStart, fromEnd, targetLine) => update("markdown", moveMarkdownBlock(draft.markdown || "", fromStart, fromEnd, targetLine))}/></div>
         </section>
       </div>
 
