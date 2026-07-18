@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { BrandMark } from "@/components/BrandMark";
 import { ArrowIcon, FocusIcon, ImageIcon, PanelLeftIcon, PanelRightIcon, PlusIcon, ToggleIcon, VideoIcon } from "@/components/Icons";
 import { DocumentReader } from "@/components/DocumentReader";
