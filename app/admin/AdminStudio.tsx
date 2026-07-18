@@ -203,15 +203,21 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     if (!preview) return;
     const blocks = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
     if (blocks.length === 0) return;
+
     let best = blocks[0];
     for (const block of blocks) {
       if (Number(block.dataset.sourceLine) <= topLine) best = block;
       else break;
     }
-    // Delta between where block currently sits and the preview top
+
+    // Compute the block's ABSOLUTE position in the preview's scroll space:
+    //   preview.scrollTop        = how far we've already scrolled
+    //   blockRect.top - previewRect.top = block's offset from preview's current visible top
+    // Together they give the block's position in scroll-space, independent of
+    // offsetParent chain depth or delta accumulation.
     const previewRect = preview.getBoundingClientRect();
     const blockRect = best.getBoundingClientRect();
-    preview.scrollTop += blockRect.top - previewRect.top;
+    preview.scrollTop = preview.scrollTop + (blockRect.top - previewRect.top);
   }
 
   // ── Compute which source line is at the top of the editor's visible area.
@@ -226,19 +232,23 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     const lineH = parseFloat(computed.lineHeight) || 24;
     const padTop = parseFloat(computed.paddingTop) || 30;
 
-    // Scenario B: textarea is scrolling internally
+    // Scenario B: textarea scrolling internally
     if (textarea.scrollTop > 0) {
       return Math.max(0, Math.floor((textarea.scrollTop - padTop) / lineH));
     }
 
     // Scenario A: editor-panel is scrolling
     if (!editor) return 0;
-    const editorTop = editor.getBoundingClientRect().top;
-    const textareaTop = textarea.getBoundingClientRect().top;
-    // Y coordinate of the first text character
-    const textStartY = textareaTop + padTop;
-    // How many pixels of text content are above the editor panel's top edge?
-    const scrolledPast = Math.max(0, editorTop - textStartY);
+    const editorRect = editor.getBoundingClientRect();
+    const textareaRect = textarea.getBoundingClientRect();
+    // Sticky toolbar covers the top of the panel — account for its height
+    const toolbarEl = editor.querySelector<HTMLElement>(".markdown-toolbar");
+    const toolbarH = toolbarEl ? toolbarEl.getBoundingClientRect().height : 0;
+    // Y in viewport where the first visible text character starts (below toolbar + textarea padding)
+    const textStartY = textareaRect.top + padTop;
+    // Y in viewport of the first VISIBLE line (below the sticky toolbar)
+    const visibleContentTop = editorRect.top + toolbarH;
+    const scrolledPast = Math.max(0, visibleContentTop - textStartY);
     return Math.floor(scrolledPast / lineH);
   }
 
