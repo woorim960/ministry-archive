@@ -194,77 +194,47 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     if (textarea) setSelection({ start: textarea.selectionStart, end: textarea.selectionEnd });
   }
 
-  // ── Shared: scroll preview so the given source line's block appears at the
-  //    very top of the preview viewport.
-  //    Uses getBoundingClientRect() — always relative to the actual viewport,
-  //    independent of offsetParent chain depth.
-  function syncPreviewToLine(topLine: number) {
-    const preview = previewScrollRef.current;
-    if (!preview) return;
-    const blocks = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
-    if (blocks.length === 0) return;
+  // ── Cursor-based preview sync ───────────────────────────────────────
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const textarea = textareaRef.current;
+      const preview = previewScrollRef.current;
+      if (!textarea || !preview) return;
 
-    let best = blocks[0];
-    for (const block of blocks) {
-      if (Number(block.dataset.sourceLine) <= topLine) best = block;
-      else break;
-    }
+      const source = draft.markdown || "";
+      if (!source) return;
 
-    // Compute the block's ABSOLUTE position in the preview's scroll space:
-    //   preview.scrollTop        = how far we've already scrolled
-    //   blockRect.top - previewRect.top = block's offset from preview's current visible top
-    // Together they give the block's position in scroll-space, independent of
-    // offsetParent chain depth or delta accumulation.
-    const previewRect = preview.getBoundingClientRect();
-    const blockRect = best.getBoundingClientRect();
-    preview.scrollTop = preview.scrollTop + (blockRect.top - previewRect.top);
-  }
+      // 현재 커서 위치 기준으로 줄 번호를 계산
+      const currentStart = textarea.selectionStart;
+      const textBeforeCursor = source.substring(0, currentStart);
+      const cursorLine = (textBeforeCursor.match(/\n/g) || []).length + 1;
 
-  // ── Compute which source line is at the top of the editor's visible area.
-  //    Works for BOTH scroll scenarios:
-  //      A) editor-panel outer scroll  (textarea grows, panel scrolls)
-  //      B) textarea internal scroll   (textarea has overflow and its own scrollbar)
-  function computeTopLine(): number {
-    const editor = editorPanelRef.current;
-    const textarea = textareaRef.current;
-    if (!textarea) return 0;
-    const computed = window.getComputedStyle(textarea);
-    const lineH = parseFloat(computed.lineHeight) || 24;
-    const padTop = parseFloat(computed.paddingTop) || 30;
+      const blocks = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
+      if (blocks.length === 0) return;
 
-    // Scenario B: textarea scrolling internally
-    if (textarea.scrollTop > 0) {
-      return Math.max(0, Math.floor((textarea.scrollTop - padTop) / lineH));
-    }
+      let best = blocks[0];
+      for (const block of blocks) {
+        if (Number(block.dataset.sourceLine) <= cursorLine) {
+          best = block;
+        } else {
+          break;
+        }
+      }
 
-    // Scenario A: editor-panel is scrolling
-    if (!editor) return 0;
-    const editorRect = editor.getBoundingClientRect();
-    const textareaRect = textarea.getBoundingClientRect();
-    // Sticky toolbar covers the top of the panel — account for its height
-    const toolbarEl = editor.querySelector<HTMLElement>(".markdown-toolbar");
-    const toolbarH = toolbarEl ? toolbarEl.getBoundingClientRect().height : 0;
-    // Y in viewport where the first visible text character starts (below toolbar + textarea padding)
-    const textStartY = textareaRect.top + padTop;
-    // Y in viewport of the first VISIBLE line (below the sticky toolbar)
-    const visibleContentTop = editorRect.top + toolbarH;
-    const scrolledPast = Math.max(0, visibleContentTop - textStartY);
-    return Math.floor(scrolledPast / lineH);
-  }
+      const previewRect = preview.getBoundingClientRect();
+      const blockRect = best.getBoundingClientRect();
 
-  // ── Panel scroll (outer container) ────────────────────────────────────
-  function handleEditorScroll() {
-    const source = draft.markdown || "";
-    if ((source.match(/\n/g)?.length ?? 0) < 1) return;
-    syncPreviewToLine(computeTopLine());
-  }
-
-  // ── Textarea internal scroll ───────────────────────────────────────
-  function handleTextareaScroll() {
-    const source = draft.markdown || "";
-    if ((source.match(/\n/g)?.length ?? 0) < 1) return;
-    syncPreviewToLine(computeTopLine());
-  }
+      // 화면 중앙에 오도록 스크롤 위치 계산
+      const targetScrollTop = preview.scrollTop + (blockRect.top - previewRect.top) - (previewRect.height / 2) + (blockRect.height / 2);
+      
+      // 이미 화면 중앙 근처에 있다면 스크롤하지 않음 (타이핑 시 흔들림 방지)
+      const offsetFromCenter = Math.abs((blockRect.top + blockRect.height / 2) - (previewRect.top + previewRect.height / 2));
+      if (offsetFromCenter > 50) {
+        preview.scrollTo({ top: Math.max(0, targetScrollTop), behavior: "smooth" });
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [draft.markdown, selection]);
 
 
   function handleTextareaKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -713,7 +683,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
           {savedDocuments.map(({ document: item, savedDocument, hasUnsavedChanges }) => <button type="button" className={`document-row ${hasUnsavedChanges ? "working" : ""} ${draft.clientKey === item.clientKey ? "selected" : ""}`} onClick={() => openSaved(item)} key={item.clientKey}><small>{hasUnsavedChanges ? <><i/>수정 중</> : savedDocument.isPublished ? "공개" : "초안"}</small><strong>{item.title || "제목 없는 기획서"}</strong><span>{savedDocument.updatedAt?.slice(0, 10)}</span></button>)}
         </aside>
 
-        <section ref={editorPanelRef} className={`editor-panel ${mobileTab === "write" ? "mobile-active" : ""}`} onScroll={handleEditorScroll}>
+        <section ref={editorPanelRef} className={`editor-panel ${mobileTab === "write" ? "mobile-active" : ""}`}>
           <div className="editor-metadata">
             <label className={fieldErrors.title ? "has-error" : ""}><span>제목</span><input ref={titleRef} value={draft.title} onChange={(event) => update("title", event.target.value)} placeholder="기획서 제목"/>{fieldErrors.title && <small>{fieldErrors.title}</small>}</label>
             <label className={fieldErrors.summary ? "has-error" : ""}><span>한 줄 소개</span><textarea value={draft.summary} onChange={(event) => update("summary", event.target.value)} placeholder="누가, 무엇을 위해 참고하면 좋은 기획인지 한 문장으로 설명해 주세요." rows={2}/>{fieldErrors.summary && <small>{fieldErrors.summary}</small>}</label>
@@ -753,7 +723,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
           </div>
 
           <div className="markdown-editor-wrap" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (event.dataTransfer.files.length) uploadFiles(event.dataTransfer.files); }}>
-            <textarea ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} value={draft.markdown} onChange={(event) => update("markdown", event.target.value)} onScroll={handleTextareaScroll} onSelect={rememberSelection} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onKeyDown={handleTextareaKeyDown} spellCheck placeholder="Markdown으로 기획서를 작성하세요." aria-label="기획서 본문 Markdown"/>
+            <textarea ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} value={draft.markdown} onChange={(event) => update("markdown", event.target.value)} onSelect={rememberSelection} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onKeyDown={handleTextareaKeyDown} spellCheck placeholder="Markdown으로 기획서를 작성하세요." aria-label="기획서 본문 Markdown"/>
             {fieldErrors.markdown && <small className="editor-error">{fieldErrors.markdown}</small>}
             <div className="drop-guidance"><span>이미지를 문장 사이에 끌어 놓으세요.</span><small>JPG · PNG · WEBP, 최대 8MB</small></div>
           </div>
