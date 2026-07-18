@@ -319,11 +319,6 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     }
     if (cmd && event.shiftKey && !event.altKey) {
       if (event.key.toLowerCase() === "x") { event.preventDefault(); wrapSelection("~~", "~~"); return; }
-      if (event.key.toLowerCase() === "q") { event.preventDefault(); applyBlock("quote"); return; }
-      if (event.key === "8") { event.preventDefault(); applyBlock("list"); return; }
-    }
-    if (cmd && event.altKey && !event.shiftKey) {
-      if (event.key === "1" || event.key === "2") { event.preventDefault(); applyBlock("heading"); return; }
     }
   }
 
@@ -769,9 +764,9 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
                 <button type="button" className="has-tip" data-help="선택한 글자 뒤에 배경색을 넣습니다." title="선택한 글자 뒤에 배경색을 넣습니다." onMouseDown={(event) => event.preventDefault()} onClick={handlePaletteBg}>배경색</button>
               </div>
               <div className="toolbar-group toolbar-block-group"><span>문단</span>
-                <button type="button" className="has-tip" data-help="현재 문단을 큰 제목으로 바꿉니다. (Cmd/Ctrl+Alt+1) 문법: ## 제목" title="현재 문단을 큰 제목으로 바꿉니다. (Cmd/Ctrl+Alt+1)" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("heading")}>제목</button>
-                <button type="button" className="has-tip" data-help="선택한 여러 줄을 목록으로 바꿉니다. (Cmd/Ctrl+Shift+8) 문법: - 항목" title="선택한 여러 줄을 목록으로 바꿉니다. (Cmd/Ctrl+Shift+8)" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("list")}>목록</button>
-                <button type="button" className="has-tip" data-help="현재 문단을 인용문으로 바꿉니다. (Cmd/Ctrl+Shift+Q) 각 줄 앞에 |가 붙습니다." title="현재 문단을 인용문으로 바꿉니다. (Cmd/Ctrl+Shift+Q)" onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("quote")}>인용</button>
+                <button type="button" className="has-tip" data-help="현재 문단을 큰 제목으로 바꿉니다. 문법: ## 제목" title="현재 문단을 큰 제목으로 바꿉니다." onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("heading")}>제목</button>
+                <button type="button" className="has-tip" data-help="선택한 여러 줄을 목록으로 바꿉니다. 문법: - 항목" title="선택한 여러 줄을 목록으로 바꿉니다." onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("list")}>목록</button>
+                <button type="button" className="has-tip" data-help="현재 문단을 인용문으로 바꿉니다. 각 줄 앞에 |가 붙습니다." title="현재 문단을 인용문으로 바꿉니다." onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("quote")}>인용</button>
                 <button type="button" className="has-tip toggle-tool" data-help={"접고 펴는 블록을 자동으로 만듭니다.\n> 펼쳐볼 제목\n  안쪽 내용 (앞에 공백 2칸)"} title="첫 줄에 > 제목을 쓰고, 다음 줄부터 두 칸 들여쓰기해 내용을 작성합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("toggle")}><ToggleIcon size={16}/>접기·펼치기</button>
               </div>
               <div className="toolbar-group toolbar-insert-group"><span>삽입</span>
