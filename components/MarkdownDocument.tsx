@@ -122,6 +122,7 @@ export function MarkdownDocument({ markdown, editable, onDropAt, onMoveBlock }: 
           <div
             className={`markdown-block markdown-${block.type}`}
             key={block.id}
+            data-source-line={block.startLine}
             draggable={editable && block.type === "image"}
             onDragStart={editable && block.type === "image" ? (event) => {
               event.dataTransfer.setData("application/x-mapomarkdown-block", `${block.startLine}:${block.endLine}`);

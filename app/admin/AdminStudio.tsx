@@ -197,13 +197,46 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   function handleEditorScroll() {
     const editor = editorPanelRef.current;
     const preview = previewScrollRef.current;
+    const textarea = textareaRef.current;
     if (!editor || !preview) return;
+
+    if (textarea) {
+      // Determine which source line is at the top of the visible textarea area
+      const source = draft.markdown || "";
+      const totalLines = (source.match(/\n/g)?.length ?? 0) + 1;
+      if (totalLines > 1 && textarea.scrollHeight > textarea.clientHeight) {
+        const lineHeight = textarea.scrollHeight / totalLines;
+        const topLine = Math.floor(editor.scrollTop / lineHeight);
+
+        // Find all [data-source-line] blocks in the preview
+        const blocks = Array.from(
+          preview.querySelectorAll<HTMLElement>("[data-source-line]")
+        );
+        if (blocks.length > 0) {
+          // Find the block whose startLine is closest to (but not exceeding) topLine
+          let best = blocks[0];
+          for (const block of blocks) {
+            const blockLine = Number(block.dataset.sourceLine);
+            if (blockLine <= topLine) best = block;
+            else break;
+          }
+          // Scroll the preview so that matching block sits at the top of the viewport
+          const previewContainerTop = preview.getBoundingClientRect().top;
+          const blockTop = best.getBoundingClientRect().top;
+          preview.scrollTop += blockTop - previewContainerTop;
+          return;
+        }
+      }
+    }
+
+    // Fallback: ratio-based
     const editorScrollHeight = editor.scrollHeight - editor.clientHeight;
     if (editorScrollHeight <= 0) return;
     const scrollRatio = editor.scrollTop / editorScrollHeight;
     const previewScrollHeight = preview.scrollHeight - preview.clientHeight;
     preview.scrollTop = scrollRatio * previewScrollHeight;
   }
+
 
   function handleTextareaKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Tab") {
