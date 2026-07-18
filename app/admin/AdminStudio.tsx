@@ -222,6 +222,11 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     }
   }
 
+  // Strip any existing {{color:*|...}} or {{bg:*|...}} wrapper from text
+  function stripColorWrap(text: string): string {
+    return text.replace(/\{\{(?:color|bg):[^|]+\|(.+?)\}\}/g, "$1");
+  }
+
   function wrapSelection(before: string, after: string, fallback = "텍스트") {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -229,13 +234,43 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     const end = selection.end;
     const source = draft.markdown || "";
     const selected = source.slice(start, end) || fallback;
-    if (selected.includes("\n")) { setNotice("인라인 서식은 한 문단 안의 텍스트에 적용해 주세요."); return; }
 
-    const hasOuterWrap = start >= before.length && 
-      source.slice(start - before.length, start) === before &&
-      source.slice(end, end + after.length) === after;
+    // For color/bg effects: strip any existing color wrap first, then re-apply new one
+    const isColorEffect = before.startsWith("{{color:") || before.startsWith("{{bg:");
+    if (isColorEffect) {
+      const stripped = stripColorWrap(selected);
+      // Check if the selection already had the exact same wrapper (toggle off)
+      const alreadyExact = hasOuterWrap(source, start, end, before, after) ||
+        (selected.startsWith(before) && selected.endsWith(after));
+      if (alreadyExact) {
+        // Remove the wrapper entirely
+        const clean = hasOuterWrap(source, start, end, before, after)
+          ? source.slice(0, start - before.length) + stripped + source.slice(end + after.length)
+          : source.slice(0, start) + stripped + source.slice(end);
+        const offset = alreadyExact && hasOuterWrap(source, start, end, before, after) ? -before.length : 0;
+        update("markdown", clean);
+        setPalette(null);
+        requestAnimationFrame(() => {
+          textarea.focus();
+          textarea.setSelectionRange(start + offset, start + offset + stripped.length);
+          setSelection({ start: start + offset, end: start + offset + stripped.length });
+        });
+        return;
+      }
+      // Strip existing color wrapper then apply new one
+      const next = source.slice(0, start) + `${before}${stripped}${after}` + source.slice(end);
+      update("markdown", next);
+      setPalette(null);
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + before.length, start + before.length + stripped.length);
+        setSelection({ start: start + before.length, end: start + before.length + stripped.length });
+      });
+      return;
+    }
 
-    if (hasOuterWrap) {
+    const hasOuter = hasOuterWrap(source, start, end, before, after);
+    if (hasOuter) {
       const next = source.slice(0, start - before.length) + selected + source.slice(end + after.length);
       update("markdown", next);
       setPalette(null);
@@ -247,8 +282,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       return;
     }
 
-    const hasInnerWrap = selected.startsWith(before) && selected.endsWith(after);
-    if (hasInnerWrap) {
+    const hasInner = selected.startsWith(before) && selected.endsWith(after);
+    if (hasInner) {
       const unwrapped = selected.slice(before.length, selected.length - after.length);
       const next = source.slice(0, start) + unwrapped + source.slice(end);
       update("markdown", next);
@@ -269,6 +304,12 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       textarea.setSelectionRange(start + before.length, end + before.length);
       setSelection({ start: start + before.length, end: end + before.length });
     });
+  }
+
+  function hasOuterWrap(source: string, start: number, end: number, before: string, after: string): boolean {
+    return start >= before.length &&
+      source.slice(start - before.length, start) === before &&
+      source.slice(end, end + after.length) === after;
   }
 
   function applyBlock(kind: "heading" | "list" | "quote" | "toggle") {
