@@ -498,6 +498,42 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     return current;
   }
 
+  function handlePaletteColor() {
+    const source = draft.markdown || "";
+    const sel = source.slice(selection.start, selection.end);
+    if (selection.start !== selection.end && /\{\{color:[^|]+\|/.test(sel)) {
+      const stripped = sel.replace(/\{\{(?:color|bg):[^|]+\|(.+?)\}\}/g, "$1");
+      const next = source.slice(0, selection.start) + stripped + source.slice(selection.end);
+      update("markdown", next);
+      setPalette(null);
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(selection.start, selection.start + stripped.length);
+        setSelection({ start: selection.start, end: selection.start + stripped.length });
+      });
+      return;
+    }
+    setPalette(palette === "text" ? null : "text");
+  }
+
+  function handlePaletteBg() {
+    const source = draft.markdown || "";
+    const sel = source.slice(selection.start, selection.end);
+    if (selection.start !== selection.end && /\{\{bg:[^|]+\|/.test(sel)) {
+      const stripped = sel.replace(/\{\{(?:color|bg):[^|]+\|(.+?)\}\}/g, "$1");
+      const next = source.slice(0, selection.start) + stripped + source.slice(selection.end);
+      update("markdown", next);
+      setPalette(null);
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus();
+        textareaRef.current?.setSelectionRange(selection.start, selection.start + stripped.length);
+        setSelection({ start: selection.start, end: selection.start + stripped.length });
+      });
+      return;
+    }
+    setPalette(palette === "background" ? null : "background");
+  }
+
   function startToolbarDrag(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;
     toolbarDrag.current = { active: true, startX: event.clientX, startScrollLeft: event.currentTarget.scrollLeft, didDrag: false };
@@ -592,8 +628,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
                 <button type="button" className="has-tip format-em" data-help="선택한 글자를 기울여 표시합니다. 문법: _글자_" title="선택한 글자를 기울여 표시합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("_", "_")}>I</button>
                 <button type="button" className="has-tip format-strike" data-help="선택한 글자에 취소선을 긋습니다. 문법: ~~글자~~" title="선택한 글자에 취소선을 긋습니다." onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("~~", "~~")}>S</button>
                 <button type="button" className="has-tip" data-help="선택한 글자를 붉은 박스로 강조합니다. 문법: `글자`" title="선택한 글자를 붉은 박스로 강조합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("`", "`")}>강조</button>
-                <button type="button" className="has-tip" data-help="선택한 글자의 색을 지정합니다." title="선택한 글자의 색을 지정합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => setPalette(palette === "text" ? null : "text")}>글자색</button>
-                <button type="button" className="has-tip" data-help="선택한 글자 뒤에 배경색을 넣습니다." title="선택한 글자 뒤에 배경색을 넣습니다." onMouseDown={(event) => event.preventDefault()} onClick={() => setPalette(palette === "background" ? null : "background")}>배경색</button>
+                <button type="button" className="has-tip" data-help="선택한 글자의 색을 지정합니다." title="선택한 글자의 색을 지정합니다." onMouseDown={(event) => event.preventDefault()} onClick={handlePaletteColor}>글자색</button>
+                <button type="button" className="has-tip" data-help="선택한 글자 뒤에 배경색을 넣습니다." title="선택한 글자 뒤에 배경색을 넣습니다." onMouseDown={(event) => event.preventDefault()} onClick={handlePaletteBg}>배경색</button>
               </div>
               <div className="toolbar-group toolbar-block-group"><span>문단</span>
                 <button type="button" className="has-tip" data-help="현재 문단을 큰 제목으로 바꿉니다. 문법: ## 제목" title="현재 문단을 큰 제목으로 바꿉니다." onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("heading")}>제목</button>
