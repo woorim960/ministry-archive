@@ -78,9 +78,26 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   const editorPanelRef = useRef<HTMLDivElement>(null);
   const previewScrollRef = useRef<HTMLDivElement>(null);
   const toolbarViewportRef = useRef<HTMLDivElement>(null);
+  const toolbarWheelRef = useRef<((e: WheelEvent) => void) | null>(null);
+  const toolbarCallbackRef = (node: HTMLDivElement | null) => {
+    // Remove from previous
+    if (toolbarViewportRef.current && toolbarWheelRef.current) {
+      toolbarViewportRef.current.removeEventListener("wheel", toolbarWheelRef.current);
+    }
+    (toolbarViewportRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    if (node) {
+      function handleWheel(event: WheelEvent) {
+        if (node.scrollWidth <= node.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+        event.preventDefault();
+        node.scrollLeft += event.deltaY;
+      }
+      toolbarWheelRef.current = handleWheel;
+      node.addEventListener("wheel", handleWheel, { passive: false });
+    }
+  };
   const saveInFlight = useRef(false);
   const activeKeyRef = useRef(draft.clientKey);
-  const toolbarDrag = useRef({ active: false, startX: 0, startScrollLeft: 0, dragged: false });
+  const toolbarDrag = useRef({ active: false, startX: 0, startScrollLeft: 0, didDrag: false });
   const previousWorkspaceView = useRef({ left: true, right: true });
   const [workspaceViewLoaded, setWorkspaceViewLoaded] = useState(false);
   const previewDoc = useMemo<ResourceSummary>(() => ({
@@ -91,19 +108,6 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     tags: normalizeTags([...draft.tags, tagInput]),
   }), [draft, tagInput]);
 
-  useEffect(() => {
-    const viewport = toolbarViewportRef.current;
-    if (!viewport) return;
-    function handleWheel(event: WheelEvent) {
-      if (viewport.scrollWidth <= viewport.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
-      event.preventDefault();
-      viewport.scrollLeft += event.deltaY;
-    }
-    viewport.addEventListener("wheel", handleWheel, { passive: false });
-    return () => {
-      viewport.removeEventListener("wheel", handleWheel);
-    };
-  }, []);
 
   useEffect(() => {
     loadSaved();
@@ -454,30 +458,25 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   }
 
   function startToolbarDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.button !== 0 || (event.target as HTMLElement).closest("input")) return;
-    toolbarDrag.current = { active: true, startX: event.clientX, startScrollLeft: event.currentTarget.scrollLeft, dragged: false };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    if (event.button !== 0) return;
+    toolbarDrag.current = { active: true, startX: event.clientX, startScrollLeft: event.currentTarget.scrollLeft, didDrag: false };
     event.currentTarget.classList.add("is-dragging");
   }
   function moveToolbarDrag(event: ReactPointerEvent<HTMLDivElement>) {
     if (!toolbarDrag.current.active) return;
-    const diff = Math.abs(event.clientX - toolbarDrag.current.startX);
-    if (diff > 5) {
-      toolbarDrag.current.dragged = true;
+    const diff = event.clientX - toolbarDrag.current.startX;
+    if (Math.abs(diff) > 4) {
+      toolbarDrag.current.didDrag = true;
+      event.currentTarget.scrollLeft = toolbarDrag.current.startScrollLeft - diff;
     }
-    event.preventDefault();
-    event.currentTarget.scrollLeft = toolbarDrag.current.startScrollLeft - (event.clientX - toolbarDrag.current.startX);
   }
   function endToolbarDrag(event: ReactPointerEvent<HTMLDivElement>) {
     toolbarDrag.current.active = false;
     event.currentTarget.classList.remove("is-dragging");
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    setTimeout(() => {
-      toolbarDrag.current.dragged = false;
-    }, 50);
   }
   function handleToolbarClickCapture(event: React.MouseEvent<HTMLDivElement>) {
-    if (toolbarDrag.current.dragged) {
+    if (toolbarDrag.current.didDrag) {
+      toolbarDrag.current.didDrag = false;
       event.stopPropagation();
       event.preventDefault();
     }
@@ -546,7 +545,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
 
           <div className="markdown-toolbar" role="toolbar" aria-label="기획서 서식">
             <div className="toolbar-guide"><b>{selection.end > selection.start ? "선택한 글자에 효과를 적용합니다." : "글자를 드래그한 뒤 효과를 선택하세요."}</b><small>각 버튼에 마우스를 올리면 사용법이 표시됩니다.</small></div>
-            <div ref={toolbarViewportRef} className="toolbar-groups-viewport" aria-label="서식 도구 가로 스크롤" onPointerDown={startToolbarDrag} onPointerMove={moveToolbarDrag} onPointerUp={endToolbarDrag} onPointerCancel={endToolbarDrag} onClickCapture={handleToolbarClickCapture}><div className="toolbar-groups">
+            <div ref={toolbarCallbackRef} className="toolbar-groups-viewport" aria-label="서식 도구 가로 스크롤" onPointerDown={startToolbarDrag} onPointerMove={moveToolbarDrag} onPointerUp={endToolbarDrag} onPointerCancel={endToolbarDrag} onClickCapture={handleToolbarClickCapture}><div className="toolbar-groups">
               <div className="toolbar-group toolbar-text-group"><span>글자 효과</span>
                 <button type="button" className="has-tip format-strong" data-help="선택한 글자를 굵게 강조합니다. 문법: **글자**" title="선택한 글자를 굵게 강조합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("**", "**")}>B</button>
                 <button type="button" className="has-tip format-em" data-help="선택한 글자를 기울여 표시합니다. 문법: _글자_" title="선택한 글자를 기울여 표시합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => wrapSelection("_", "_")}>I</button>
