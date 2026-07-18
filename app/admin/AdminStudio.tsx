@@ -74,6 +74,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   const [mobileLibraryOpen, setMobileLibraryOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [dragHoverLine, setDragHoverLine] = useState<number | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const editorPanelRef = useRef<HTMLDivElement>(null);
   const previewScrollRef = useRef<HTMLDivElement>(null);
@@ -477,7 +478,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
 
   function removeTag(tag: string) { update("tags", draft.tags.filter((item) => item !== tag)); }
 
-  async function uploadFiles(files: FileList | File[], line?: number, cover = false) {
+  async function uploadFiles(files: FileList | File[], line?: number | null, cover = false) {
     const images = Array.from(files).filter((file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type));
     if (!images.length) { setNotice("JPG, PNG, WEBP 이미지만 올릴 수 있습니다."); return; }
     setUploading(true);
@@ -492,7 +493,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
         if (!response.ok || !result.url) { setNotice(result.error || "이미지를 올리지 못했습니다. 다시 시도해 주세요."); continue; }
         if (cover) { update("coverUrl", result.url); break; }
         const syntax = `![${result.alt || "이미지 설명"}](${result.url} "이미지 설명") {wide}`;
-        if (targetLine === undefined) {
+        if (targetLine === undefined || targetLine === null) {
           const position = textareaRef.current?.selectionStart ?? nextMarkdown.length;
           targetLine = nextMarkdown.slice(0, position).split("\n").length - 1;
         }
@@ -696,6 +697,29 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     }
   }
 
+  function handleEditorDragOver(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const rect = textarea.getBoundingClientRect();
+    const y = event.clientY - rect.top + textarea.scrollTop - 34; // 34px is padding-top
+    const line = Math.max(0, Math.floor(y / 25.9)); // 25.9px is approx line-height
+    const maxLine = (draft.markdown || "").split("\n").length;
+    setDragHoverLine(Math.min(line, maxLine));
+  }
+
+  function handleEditorDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragHoverLine(null);
+  }
+
+  function handleEditorDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const targetLine = dragHoverLine;
+    setDragHoverLine(null);
+    if (event.dataTransfer.files.length) uploadFiles(event.dataTransfer.files, targetLine);
+  }
+
   const focusMode = !leftPanelOpen && !rightPanelOpen;
   function toggleFocusMode() {
     if (focusMode) {
@@ -755,8 +779,6 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
             </div>
           </div>
 
-
-
           <div className="markdown-toolbar" role="toolbar" aria-label="기획서 서식">
             <div className="toolbar-guide"><b>{selection.end > selection.start ? "선택한 글자에 효과를 적용합니다." : "글자를 드래그한 뒤 효과를 선택하세요."}</b><small>각 버튼에 마우스를 올리면 사용법이 표시됩니다.</small></div>
             <div ref={toolbarCallbackRef} className="toolbar-groups-viewport" aria-label="서식 도구 가로 스크롤" onPointerDown={startToolbarDrag} onPointerMove={moveToolbarDrag} onPointerUp={endToolbarDrag} onPointerCancel={endToolbarDrag} onClickCapture={handleToolbarClickCapture} onWheel={handleToolbarWheel}><div className="toolbar-groups">
@@ -784,7 +806,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
             {palette && <div className={`format-palette palette-${palette}`}><b>{palette === "text" ? "글자 색" : palette === "background" ? "배경 색" : "진행자 참고 색상"}</b>{tones.map((tone) => <button type="button" key={tone.value} onMouseDown={(event) => event.preventDefault()} onClick={() => palette === "note" ? insertNote(tone.value) : wrapSelection(`{{${palette === "text" ? "color" : "bg"}:${tone.value}|`, "}}") }><i className={`swatch tone-${tone.value}`}/><span>{tone.label}</span></button>)}</div>}
           </div>
 
-          <div className="markdown-editor-wrap" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (event.dataTransfer.files.length) uploadFiles(event.dataTransfer.files); }}>
+          <div className="markdown-editor-wrap" onDragOver={handleEditorDragOver} onDragLeave={handleEditorDragLeave} onDrop={handleEditorDrop}>
+            {dragHoverLine !== null && <div className="drop-indicator" style={{ top: `${34 + dragHoverLine * 25.9 - (textareaRef.current?.scrollTop || 0)}px` }} />}
             <textarea ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} value={draft.markdown} onChange={(event) => update("markdown", event.target.value)} onScroll={handleScroll} onSelect={rememberSelection} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onKeyDown={handleTextareaKeyDown} spellCheck placeholder="Markdown으로 기획서를 작성하세요." aria-label="기획서 본문 Markdown"/>
             {fieldErrors.markdown && <small className="editor-error">{fieldErrors.markdown}</small>}
             <div className="drop-guidance"><span>이미지를 문장 사이에 끌어 놓으세요.</span><small>JPG · PNG · WEBP, 최대 8MB</small></div>
