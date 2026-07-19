@@ -1,5 +1,5 @@
 import { LockIcon } from "@/components/Icons";
-import { loginAction } from "./actions";
+import { loginAction } from "./actions.ts";
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ return_to?: string; error?: string }> }) {
   const params = await searchParams;

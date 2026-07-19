@@ -8,12 +8,10 @@ import { headingId, parseMarkdown } from "@/lib/markdown";
 import type { ResourceSummary } from "@/types/content";
 import { MarkdownDocument } from "@/components/MarkdownDocument";
 
-export function DocumentReader({ document, preview = false, related = [], onDropAt, onMoveBlock }: {
+export function DocumentReader({ document, preview = false, related = [] }: {
   document: ResourceSummary;
   preview?: boolean;
   related?: ResourceSummary[];
-  onDropAt?: (files: FileList, line: number) => void;
-  onMoveBlock?: (fromStart: number, fromEnd: number, targetLine: number) => void;
 }) {
   const [progress, setProgress] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -70,7 +68,7 @@ export function DocumentReader({ document, preview = false, related = [], onDrop
           })}</nav></details>
         </aside>}
         <div className="document-content">
-          <MarkdownDocument markdown={document.markdown || ""} editable={Boolean(onDropAt)} onDropAt={onDropAt} onMoveBlock={onMoveBlock}/>
+          <MarkdownDocument markdown={document.markdown || ""} editable={preview}/>
           {!preview && <footer className="document-end"><div><span>마지막 수정</span><time dateTime={document.updatedAt}>{formatDate(document.updatedAt)}</time></div><button type="button" onClick={copyLink}>{copied ? "링크를 복사했어요" : "링크 복사"}</button></footer>}
         </div>
       </div>

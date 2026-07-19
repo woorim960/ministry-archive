@@ -1,7 +1,7 @@
 import type { MarkdownBlock } from "@/types/content";
 
 function isBlockStart(line: string) {
-  return /^(#{1,5})\s+/.test(line) || /^```/.test(line) || /^:::note\[/.test(line) || /^>/.test(line) || /^(?:\s*[-*]\s+|\s*\d+\.\s+)/.test(line) || /^---+$/.test(line) || /^!\[/.test(line) || /^@youtube\[/.test(line) || /^\|/.test(line);
+  return /^(#{1,5})\s+/.test(line) || /^```/.test(line) || /^:::note\\?\[/.test(line) || /^:::toggle/.test(line) || /^\\?>/.test(line) || /^(?:\s*[-*]\s+|\s*\d+\.\s+)/.test(line) || /^---+$/.test(line) || /^!\\?\[/.test(line) || /^@youtube\\?\[/.test(line) || /^\|/.test(line);
 }
 
 export function parseMarkdown(markdown: string): MarkdownBlock[] {
@@ -41,22 +41,35 @@ export function parseMarkdown(markdown: string): MarkdownBlock[] {
       continue;
     }
 
-    const youtube = line.match(/^@youtube\[(.*?)\]\((.*?)\)$/);
+    const youtube = line.match(/^@youtube\\?\[(.*?)\\?\]\\?\((.*?)\\?\)$/);
     if (youtube) {
       push({ type: "youtube", raw: line, startLine, endLine: index, caption: youtube[1], url: youtube[2] });
       index += 1;
       continue;
     }
 
-    const noteDirective = line.match(/^:::note\[(red|rose|blue|green|amber|violet|neutral|gray|slate)\]\s*(.*)$/i);
+    const noteDirective = line.match(/^:::note\\?\[(red|rose|blue|green|amber|violet|neutral|gray|slate)\\?\]\s*(.*)$/i);
     if (noteDirective) {
-      const closing = lines.findIndex((candidate, candidateIndex) => candidateIndex > index && candidate.trim() === ":::");
+      const closing = lines.findIndex((candidate, candidateIndex) => candidateIndex > index && candidate.replace(/\\/g, "").trim() === ":::");
       if (closing !== -1) {
         const toneAlias = noteDirective[1].toLowerCase();
         const tone = toneAlias === "rose" ? "red" : ["gray", "slate"].includes(toneAlias) ? "neutral" : toneAlias;
         push({
           type: "callout", raw: lines.slice(startLine, closing + 1).join("\n"), startLine, endLine: closing,
-          title: noteDirective[2].trim() || "진행자 참고", text: lines.slice(index + 1, closing).join("\n").trim(), tone: tone as MarkdownBlock["tone"],
+          title: noteDirective[2].trim() || "참고", text: lines.slice(index + 1, closing).join("\n").trim(), tone: tone as MarkdownBlock["tone"],
+        });
+        index = closing + 1;
+        continue;
+      }
+    }
+
+    const toggleDirective = line.match(/^:::toggle\s*(.*)$/i);
+    if (toggleDirective) {
+      const closing = lines.findIndex((candidate, candidateIndex) => candidateIndex > index && candidate.replace(/\\/g, "").trim() === ":::");
+      if (closing !== -1) {
+        push({
+          type: "toggle", raw: lines.slice(startLine, closing + 1).join("\n"), startLine, endLine: closing,
+          title: toggleDirective[1].trim() || "펼쳐보기", text: lines.slice(index + 1, closing).join("\n").trim() || "내용이 없습니다."
         });
         index = closing + 1;
         continue;
@@ -65,7 +78,7 @@ export function parseMarkdown(markdown: string): MarkdownBlock[] {
 
     const note = line.match(/^>\s*\[!NOTE(?::(red|blue|green|amber|violet|neutral))?\]\s*(.*)$/i);
     if (note) {
-      const title = note[2].trim() || "진행자 참고";
+      const title = note[2].trim() || "참고";
       const noteLines: string[] = [];
       index += 1;
       while (index < lines.length && /^>/.test(lines[index])) { noteLines.push(lines[index].replace(/^>\s?/, "")); index += 1; }
@@ -73,17 +86,37 @@ export function parseMarkdown(markdown: string): MarkdownBlock[] {
       continue;
     }
 
-    if (/^>/.test(line)) {
-      const title = line.replace(/^>\s?/, "").trim() || "펼쳐보기";
-      const toggleLines: string[] = [];
-      index += 1;
-      while (index < lines.length) {
-        if (/^>/.test(lines[index])) { toggleLines.push(lines[index].replace(/^>\s?/, "")); index += 1; continue; }
-        if (/^(?: {2,}|\t)/.test(lines[index])) { toggleLines.push(lines[index].replace(/^(?: {2}|\t)/, "")); index += 1; continue; }
-        if (!lines[index].trim() && index + 1 < lines.length && /^(?: {2,}|\t|>)/.test(lines[index + 1])) { toggleLines.push(""); index += 1; continue; }
-        break;
+    if (/^\\?>/.test(line)) {
+      const isQuote = (index + 1 >= lines.length) || /^\\?>/.test(lines[index + 1]) || (!/^ {2}/.test(lines[index + 1]) && lines[index+1].trim() !== "");
+      
+      if (isQuote) {
+        const quoteLines: string[] = [];
+        quoteLines.push(line.replace(/^\\?>\s?/, ""));
+        index += 1;
+        while (index < lines.length) {
+          if (/^\\?>/.test(lines[index])) { quoteLines.push(lines[index].replace(/^\\?>\s?/, "")); index += 1; continue; }
+          if (!lines[index].trim() && index + 1 < lines.length && /^\\?>/.test(lines[index + 1])) { quoteLines.push(""); index += 1; continue; }
+          break;
+        }
+        push({ type: "quote", raw: lines.slice(startLine, index).join("\n"), startLine, endLine: index - 1, text: quoteLines.join("\n") });
+        continue;
+      } else {
+        const title = line.replace(/^\\?>\s?/, "").trim() || "펼쳐보기";
+        const toggleLines: string[] = [];
+        index += 1;
+        while (index < lines.length) {
+          if (/^(?: {2,}|\t)/.test(lines[index])) { toggleLines.push(lines[index].replace(/^(?: {2}|\t)/, "")); index += 1; continue; }
+          if (!lines[index].trim() && index + 1 < lines.length && /^(?: {2,}|\t)/.test(lines[index + 1])) { toggleLines.push(""); index += 1; continue; }
+          break;
+        }
+        push({ type: "toggle", raw: lines.slice(startLine, index).join("\n"), startLine, endLine: index - 1, title, text: toggleLines.join("\n").trim() || "내용이 없습니다." });
+        continue;
       }
-      push({ type: "toggle", raw: lines.slice(startLine, index).join("\n"), startLine, endLine: index - 1, title, text: toggleLines.join("\n").trim() || "내용이 없습니다." });
+    }
+
+            if (/^---+$/.test(line.trim())) {
+      push({ type: "divider", raw: line, startLine, endLine: index });
+      index += 1;
       continue;
     }
 
@@ -127,12 +160,6 @@ export function parseMarkdown(markdown: string): MarkdownBlock[] {
       const quoteLines: string[] = [];
       while (index < lines.length && /^\|(?:\s|$)/.test(lines[index])) { quoteLines.push(lines[index].replace(/^\|\s?/, "")); index += 1; }
       push({ type: "quote", raw: lines.slice(startLine, index).join("\n"), startLine, endLine: index - 1, text: quoteLines.join("\n") });
-      continue;
-    }
-
-    if (/^---+$/.test(line.trim())) {
-      push({ type: "divider", raw: line, startLine, endLine: index });
-      index += 1;
       continue;
     }
 

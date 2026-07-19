@@ -50,10 +50,10 @@ export function TrashIcon(props: IconProps) {
   return <Base {...props}><path d="M4 7h16M9 3h6l1 4M7 7l1 14h8l1-14M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.5"/></Base>;
 }
 export function PanelLeftIcon(props: IconProps) {
-  return <Base {...props}><rect x="3.5" y="4" width="17" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M9 4v16M6.5 9.5 4.8 12l1.7 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></Base>;
+  return <Base {...props}><rect x="3.5" y="4" width="17" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M3.5 4h5.5v16h-5.5z" fill="currentColor" opacity="0.2"/><path d="M9 4v16M6.5 9.5 4.8 12l1.7 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></Base>;
 }
 export function PanelRightIcon(props: IconProps) {
-  return <Base {...props}><rect x="3.5" y="4" width="17" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M15 4v16m2.5-10.5 1.7 2.5-1.7 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></Base>;
+  return <Base {...props}><rect x="3.5" y="4" width="17" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M15 4h5.5v16h-5.5z" fill="currentColor" opacity="0.2"/><path d="M15 4v16m2.5-10.5 1.7 2.5-1.7 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></Base>;
 }
 export function VideoIcon(props: IconProps) {
   return <Base {...props}><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="m10 9 5 3-5 3V9Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></Base>;
@@ -67,3 +67,13 @@ export function ToggleIcon(props: IconProps) {
 export function FocusIcon(props: IconProps) {
   return <Base {...props}><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 9h6v6H9z" stroke="currentColor" strokeWidth="1.5"/></Base>;
 }
+
+export function PanelLeftOpenIcon(props: IconProps) {
+  return <Base {...props}><rect x="3.5" y="4" width="17" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 3"/><path d="M9 4v16M4.8 9.5 6.5 12l-1.7 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></Base>;
+}
+
+export function PanelRightOpenIcon(props: IconProps) {
+  return <Base {...props}><rect x="3.5" y="4" width="17" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 3"/><path d="M15 4v16m4.2-10.5-1.7 2.5 1.7 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></Base>;
+}
+
+

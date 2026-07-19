@@ -28,7 +28,8 @@ export async function POST(request: Request) {
     const db = await getDb();
     await db.insert(media).values({ id: crypto.randomUUID(), objectKey: uploadedKey, originalName: file.name, contentType: detected.mime, size: file.size, alt, uploaderEmail: auth.user.email });
     return Response.json({ url: `/api/media/${uploadedKey}`, alt, name: file.name });
-  } catch {
+  } catch (error) {
+    console.error("Upload error:", error);
     if (uploadedKey) await bucket.delete(uploadedKey).catch(() => undefined);
     return Response.json({ error: "업로드하지 못했습니다. 파일은 저장되지 않았습니다." }, { status: 500 });
   }

@@ -2,8 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import ImageExtension from "@tiptap/extension-image";
+import Placeholder from "@tiptap/extension-placeholder";
+import { Markdown } from "tiptap-markdown";
 import { BrandMark } from "@/components/BrandMark";
-import { ArrowIcon, FocusIcon, ImageIcon, PanelLeftIcon, PanelRightIcon, PlusIcon, ToggleIcon, VideoIcon } from "@/components/Icons";
+import { ArrowIcon, FocusIcon, ImageIcon, PanelLeftIcon, PanelRightIcon, PanelLeftOpenIcon, PanelRightOpenIcon, PlusIcon, ToggleIcon, VideoIcon } from "@/components/Icons";
 import { DocumentReader } from "@/components/DocumentReader";
 import { buildSidebarDocuments, createLocalClientKey, mergeSavedDocuments, removeWorkingDocument, serverClientKey, upsertWorkingDocument } from "@/lib/editor-workspace";
 import { insertMarkdownAtLine, moveMarkdownBlock, youtubeId } from "@/lib/markdown";
@@ -38,7 +43,7 @@ const starterMarkdown = `## 기획 의도
 2. 핵심 활동
 3. 마무리와 나눔
 
-:::note[blue] 진행자 참고
+:::note[blue] 참고
 현장에서 꼭 기억할 내용을 적어주세요.
 :::
 `;
@@ -64,16 +69,107 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   const [mobileTab, setMobileTab] = useState<"write" | "preview">("write");
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [leftPanelHover, setLeftPanelHover] = useState(false);
+  const [rightPanelHover, setRightPanelHover] = useState(false);
+  const [previewWidth, setPreviewWidth] = useState<number | null>(null);
+  const [isResizingActive, setIsResizingActive] = useState(false);
+  const isResizing = useRef(false);
+
+  useEffect(() => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!isResizing.current) return;
+      let newWidth = window.innerWidth - e.clientX;
+      const minWidth = 300;
+      const maxWidth = window.innerWidth - 300;
+      if (newWidth < minWidth) newWidth = minWidth;
+      if (newWidth > maxWidth) newWidth = maxWidth;
+      setPreviewWidth(newWidth);
+    };
+    const handlePointerUp = () => {
+      if (isResizing.current) {
+        isResizing.current = false;
+        setIsResizingActive(false);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    };
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, []);
+
+  const startResizing = useCallback((e: React.PointerEvent) => {
+    isResizing.current = true;
+    setIsResizingActive(true);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
+
+  const isLeftVisible = leftPanelOpen || leftPanelHover;
+  const isRightVisible = rightPanelOpen || rightPanelHover;
+
+  const workspaceStyle = useMemo(() => {
+    if (typeof window !== "undefined" && window.innerWidth <= 980) return undefined;
+    if (previewWidth === null) return undefined;
+    if (!isLeftVisible && !isRightVisible) return undefined;
+    if (!isLeftVisible) {
+      return { gridTemplateColumns: `minmax(500px, 1fr) ${previewWidth}px` };
+    }
+    if (!isRightVisible) return { gridTemplateColumns: `230px minmax(300px, 1fr) 0px` };
+    return { gridTemplateColumns: `230px minmax(300px, 1fr) ${previewWidth}px` };
+  }, [isLeftVisible, isRightVisible, previewWidth]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isResizing.current) return;
+      if (!leftPanelOpen) {
+        if (e.clientX < 12) setLeftPanelHover(true);
+        else if (e.clientX > 250) setLeftPanelHover(false); // 230px panel + 20px buffer
+      }
+      if (!rightPanelOpen) {
+        if (window.innerWidth - e.clientX < 12) setRightPanelHover(true);
+        else if (window.innerWidth - e.clientX > (previewWidth ?? 500) + 20) setRightPanelHover(false);
+      }
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [leftPanelOpen, rightPanelOpen, previewWidth]);
+
   const [palette, setPalette] = useState<PaletteKind>(null);
   const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [youtubeCaption, setYoutubeCaption] = useState("");
   const [youtubeError, setYoutubeError] = useState("");
+  const [commandbarVisible, setCommandbarVisible] = useState(false);
+  const lastScrollY = useRef(0);
+  const lastInteractedPanel = useRef<"editor" | "preview">("editor");
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   const [mobileLibraryOpen, setMobileLibraryOpen] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef<HTMLDivElement>(null);
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      ImageExtension.configure({ inline: true, allowBase64: true }),
+      Placeholder.configure({ placeholder: "Markdown으로 기획서를 작성하세요." }),
+      Markdown,
+    ],
+    content: draft.markdown,
+    onUpdate: ({ editor }) => {
+      const nextMarkdown = (editor.storage as any).markdown.getMarkdown();
+      update("markdown", nextMarkdown);
+    },
+  });
+
+  useEffect(() => {
+    if (editor && draft.markdown !== (editor.storage as any).markdown.getMarkdown()) {
+      editor.commands.setContent(draft.markdown || "");
+    }
+  }, [draft.markdown, editor]);
   const [dragHoverLine, setDragHoverLine] = useState<number | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const editorPanelRef = useRef<HTMLDivElement>(null);
@@ -88,7 +184,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     (toolbarViewportRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
     if (node) {
       function handleWheel(event: WheelEvent) {
-        if (node.scrollWidth <= node.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+        if (!node || node.scrollWidth <= node.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
         event.preventDefault();
         node.scrollLeft += event.deltaY;
       }
@@ -190,138 +286,49 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     setFieldErrors((current) => ({ ...current, [key]: "" }));
   }
 
-  function rememberSelection() {
-    const textarea = textareaRef.current;
-    if (textarea) setSelection({ start: textarea.selectionStart, end: textarea.selectionEnd });
-  }
+  function rememberSelection() {}
 
-  // ── Cursor-based preview sync ───────────────────────────────────────
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const textarea = textareaRef.current;
-      const preview = previewScrollRef.current;
-      if (!textarea || !preview) return;
+  
 
-      const source = draft.markdown || "";
-      if (!source) return;
-
-      // 현재 커서 위치 기준으로 줄 번호를 계산
-      const currentStart = textarea.selectionStart;
-      const textBeforeCursor = source.substring(0, currentStart);
-      const cursorLine = (textBeforeCursor.match(/\n/g) || []).length + 1;
-
-      const blocks = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
-      if (blocks.length === 0) return;
-
-      let best = blocks[0];
-      for (const block of blocks) {
-        if (Number(block.dataset.sourceLine) <= cursorLine) {
-          best = block;
-        } else {
-          break;
-        }
-      }
-
-      const previewRect = preview.getBoundingClientRect();
-      const blockRect = best.getBoundingClientRect();
-
-      // 화면 중앙에 오도록 스크롤 위치 계산
-      const targetScrollTop = preview.scrollTop + (blockRect.top - previewRect.top) - (previewRect.height / 2) + (blockRect.height / 2);
-      
-      // 이미 화면 중앙 근처에 있다면 스크롤하지 않음 (타이핑 시 흔들림 방지)
-      const offsetFromCenter = Math.abs((blockRect.top + blockRect.height / 2) - (previewRect.top + previewRect.height / 2));
-      if (offsetFromCenter > 50) {
-        preview.scrollTo({ top: Math.max(0, targetScrollTop), behavior: "smooth" });
-      }
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [draft.markdown, selection]);
-
-  // ── Scroll-based preview sync (Center-to-Center) ───────────────────────
-  const handleScroll = useCallback(() => {
-    const textarea = textareaRef.current;
-    const editor = editorPanelRef.current;
-    const preview = previewScrollRef.current;
-    if (!textarea || !preview || !editor) return;
-
-    // 편집창 전체 스크롤이 최상단일 경우 미리보기도 최상단으로 (제목과 동기화)
-    if (editor.scrollTop === 0) {
-      preview.scrollTo({ top: 0 });
-      return;
-    }
-
-    const source = draft.markdown || "";
-    if ((source.match(/\n/g)?.length ?? 0) < 1) return;
-
-    const computed = window.getComputedStyle(textarea);
-    const lineH = parseFloat(computed.lineHeight) || 24;
-    const padTop = parseFloat(computed.paddingTop) || 30;
-
-    let centerScrolledPast = 0;
-
-    if (textarea.scrollTop > 0) {
-      const visibleCenter = textarea.scrollTop + (textarea.clientHeight / 2);
-      centerScrolledPast = Math.max(0, visibleCenter - padTop);
-    } else {
-      const editorRect = editor.getBoundingClientRect();
-      const textareaRect = textarea.getBoundingClientRect();
-      const toolbarEl = editor.querySelector<HTMLElement>(".markdown-toolbar");
-      const toolbarH = toolbarEl ? toolbarEl.getBoundingClientRect().height : 0;
-      
-      const visibleTop = editorRect.top + toolbarH;
-      const visibleBottom = editorRect.bottom;
-      const visibleCenter = (visibleTop + visibleBottom) / 2;
-      
-      const textStartY = textareaRect.top + padTop;
-      centerScrolledPast = Math.max(0, visibleCenter - textStartY);
-    }
-
-    const centerLine = Math.floor(centerScrolledPast / lineH) + 1;
-
-    const blocks = Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
-    if (blocks.length === 0) return;
-
-    let best = blocks[0];
-    for (const block of blocks) {
-      if (Number(block.dataset.sourceLine) <= centerLine) {
-        best = block;
-      } else {
-        break;
-      }
-    }
-
-    const previewRect = preview.getBoundingClientRect();
-    const blockRect = best.getBoundingClientRect();
-
-    const targetScrollTop = preview.scrollTop + (blockRect.top - previewRect.top) - (previewRect.height / 2) + (blockRect.height / 2);
+  const performSectionalSync = (source: HTMLElement, target: HTMLElement) => {
+    const sourceMax = source.scrollHeight - source.clientHeight;
+    const targetMax = target.scrollHeight - target.clientHeight;
     
-    preview.scrollTo({ top: Math.max(0, targetScrollTop) });
-  }, [draft.markdown]);
+    if (sourceMax <= 0 || targetMax <= 0) return;
 
+    const percentage = source.scrollTop / sourceMax;
+    target.scrollTo({ top: percentage * targetMax });
+  };
 
-  function handleTextareaKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Tab") {
-      event.preventDefault();
-      const textarea = event.currentTarget;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      textarea.setSelectionRange(start, end);
-      document.execCommand("insertText", false, "  ");
-      return;
+  const handleEditorScroll = useCallback(() => {
+    const editorPanel = editorPanelRef.current;
+    const preview = previewScrollRef.current;
+    if (!editorPanel || !preview) return;
+
+    if (lastInteractedPanel.current !== "editor") return;
+
+    const totalScrollY = editorPanel.scrollTop;
+    if (totalScrollY > lastScrollY.current + 15) {
+      setCommandbarVisible(false);
+    } else if (totalScrollY < lastScrollY.current - 15) {
+      setCommandbarVisible(true);
     }
+    lastScrollY.current = totalScrollY;
 
-    const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-    const cmd = isMac ? event.metaKey : event.ctrlKey;
+    performSectionalSync(editorPanel, preview);
+  }, []);
 
-    if (cmd && !event.shiftKey && !event.altKey) {
-      if (event.key.toLowerCase() === "b") { event.preventDefault(); wrapSelection("**", "**"); return; }
-      if (event.key.toLowerCase() === "i") { event.preventDefault(); wrapSelection("_", "_"); return; }
-      if (event.key.toLowerCase() === "e") { event.preventDefault(); wrapSelection("`", "`"); return; }
-    }
-    if (cmd && event.shiftKey && !event.altKey) {
-      if (event.key.toLowerCase() === "x") { event.preventDefault(); wrapSelection("~~", "~~"); return; }
-    }
-  }
+  const handlePreviewScroll = useCallback(() => {
+    const editorPanel = editorPanelRef.current;
+    const preview = previewScrollRef.current;
+    if (!editorPanel || !preview) return;
+
+    if (lastInteractedPanel.current !== "preview") return;
+
+    performSectionalSync(preview, editorPanel);
+  }, []);
+
+
 
   // Strip any existing {{color:*|...}} or {{bg:*|...}} wrapper from text
   function stripColorWrap(text: string): string {
@@ -329,59 +336,19 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   }
 
   function wrapSelection(before: string, after: string, fallback = "텍스트") {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const start = selection.start;
-    const end = selection.end;
-    const source = draft.markdown || "";
-    const selected = source.slice(start, end) || fallback;
+    if (!editor) return;
+    
+    if (before === "**") { editor.chain().focus().toggleBold().run(); return; }
+    if (before === "_") { editor.chain().focus().toggleItalic().run(); return; }
+    if (before === "~~") { editor.chain().focus().toggleStrike().run(); return; }
+    if (before === "`") { editor.chain().focus().toggleCode().run(); return; }
 
-    const execReplace = (rStart: number, rEnd: number, text: string, sStart: number, sEnd: number) => {
-      textarea.focus();
-      textarea.setSelectionRange(rStart, rEnd);
-      document.execCommand("insertText", false, text);
-      requestAnimationFrame(() => {
-        textarea.focus();
-        textarea.setSelectionRange(sStart, sEnd);
-        rememberSelection();
-      });
-    };
-
-    const isColorEffect = before.startsWith("{{color:") || before.startsWith("{{bg:");
-    if (isColorEffect) {
-      const stripped = stripColorWrap(selected);
-      const alreadyExact = hasOuterWrap(source, start, end, before, after) || (selected.startsWith(before) && selected.endsWith(after));
-      if (alreadyExact) {
-        const hasOut = hasOuterWrap(source, start, end, before, after);
-        const rStart = hasOut ? start - before.length : start;
-        const rEnd = hasOut ? end + after.length : end;
-        const offset = hasOut ? -before.length : 0;
-        setPalette(null);
-        execReplace(rStart, rEnd, stripped, start + offset, start + offset + stripped.length);
-        return;
-      }
-      setPalette(null);
-      execReplace(start, end, `${before}${stripped}${after}`, start + before.length, start + before.length + stripped.length);
-      return;
-    }
-
-    const hasOuter = hasOuterWrap(source, start, end, before, after);
-    if (hasOuter) {
-      setPalette(null);
-      execReplace(start - before.length, end + after.length, selected, start - before.length, end - before.length);
-      return;
-    }
-
-    const hasInner = selected.startsWith(before) && selected.endsWith(after);
-    if (hasInner) {
-      const unwrapped = selected.slice(before.length, selected.length - after.length);
-      setPalette(null);
-      execReplace(start, end, unwrapped, start, start + unwrapped.length);
-      return;
-    }
-
+    const { from, to } = editor.state.selection;
+    const selected = editor.state.doc.textBetween(from, to, " ") || fallback;
+    const stripped = stripColorWrap(selected);
+    
     setPalette(null);
-    execReplace(start, end, `${before}${selected}${after}`, start + before.length, end + before.length);
+    editor.chain().focus().insertContent(`${before}${stripped}${after}`).run();
   }
 
   function hasOuterWrap(source: string, start: number, end: number, before: string, after: string): boolean {
@@ -391,82 +358,32 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   }
 
   function applyBlock(kind: "heading" | "list" | "quote" | "toggle") {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const source = draft.markdown || "";
-    const start = source.lastIndexOf("\n", Math.max(0, selection.start - 1)) + 1;
-    const lineEnd = source.indexOf("\n", selection.end);
-    const end = lineEnd === -1 ? source.length : lineEnd;
-    const selected = source.slice(start, end) || (kind === "toggle" ? "펼쳐볼 제목\n안쪽 내용을 입력하세요." : "내용");
-    const prefix = kind === "heading" ? "## " : kind === "list" ? "- " : kind === "quote" ? "| " : "> ";
-    const cleanLines = selected.split("\n").map((line) => line.replace(/^(?:## |- |\| |> | {2})/, ""));
-
-    const lines = selected.split("\n");
-    const isHeading = kind === "heading" && lines.every((l) => l.startsWith("## "));
-    const isList = kind === "list" && lines.every((l) => l.startsWith("- "));
-    const isQuote = kind === "quote" && lines.every((l) => l.startsWith("| "));
-    const isToggle = kind === "toggle" && lines[0].startsWith("> ") && lines.slice(1).every((l) => l.startsWith("  "));
-    const isApplied = isHeading || isList || isQuote || isToggle;
-
-    const execReplace = (rStart: number, rEnd: number, text: string, sStart: number, sEnd: number) => {
-      textarea.focus();
-      textarea.setSelectionRange(rStart, rEnd);
-      document.execCommand("insertText", false, text);
-      requestAnimationFrame(() => {
-        textarea.focus();
-        textarea.setSelectionRange(sStart, sEnd);
-        rememberSelection();
-      });
-    };
-
-    if (isApplied) {
-      const transformed = cleanLines.join("\n");
-      execReplace(start, end, transformed, start, start + transformed.length);
-      return;
-    }
-
-    const transformed = kind === "toggle"
-      ? [`> ${cleanLines[0] || "펼쳐볼 제목"}`, ...((cleanLines.slice(1).length ? cleanLines.slice(1) : ["안쪽 내용을 입력하세요."]).map((line) => `  ${line}`))].join("\n")
-      : cleanLines.map((line) => `${prefix}${line}`).join("\n");
-    execReplace(start, end, transformed, start + prefix.length, start + transformed.length);
+    if (!editor) return;
+    if (kind === "heading") { editor.chain().focus().toggleHeading({ level: 2 }).run(); return; }
+    if (kind === "list") { editor.chain().focus().toggleBulletList().run(); return; }
+    if (kind === "quote") { editor.chain().focus().toggleBlockquote().run(); return; }
+    if (kind === "toggle") { editor.chain().focus().insertContent("> 펼쳐볼 제목\n  안쪽 내용을 입력하세요.").run(); return; }
   }
 
   function insertYoutube() {
     const url = youtubeUrl.trim();
     if (!youtubeId(url)) { setYoutubeError("유튜브 영상 주소를 확인해 주세요."); return; }
     const caption = youtubeCaption.trim().replace(/[\[\]]/g, "") || "영상 자료";
-    const syntax = `@youtube[${caption}](${url})`;
-    const source = draft.markdown || "";
-    const position = textareaRef.current?.selectionStart ?? selection.start ?? source.length;
-    const line = source.slice(0, position).split("\n").length - 1;
-    const next = insertMarkdownAtLine(source, line, syntax);
-    update("markdown", next);
+    const syntax = `\n@youtube[${caption}](${url})\n`;
+    if (editor) editor.chain().focus().insertContent(syntax).run();
     setYoutubeOpen(false);
     setYoutubeUrl("");
     setYoutubeCaption("");
     setYoutubeError("");
     setNotice("유튜브 영상을 현재 위치에 추가했습니다.");
-    requestAnimationFrame(() => textareaRef.current?.focus());
   }
 
   function insertNote(tone: typeof tones[number]["value"]) {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const source = draft.markdown || "";
-    const start = selection.start;
-    const end = selection.end;
-    const selected = source.slice(start, end).trim() || "현장에서 꼭 기억할 내용을 적어주세요.";
-    const block = `:::note[${tone}] 진행자 참고\n${selected}\n:::`;
-    
     setPalette(null);
-    textarea.focus();
-    textarea.setSelectionRange(start, end);
-    document.execCommand("insertText", false, block);
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + block.length, start + block.length);
-      rememberSelection();
-    });
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    const selected = editor.state.doc.textBetween(from, to, " ") || "현장에서 꼭 기억할 내용을 적어주세요.";
+    editor.chain().focus().insertContent(`\n:::note[${tone}] 진행자 참고\n${selected}\n:::\n`).run();
   }
 
   function commitTags(raw = tagInput) {
@@ -493,12 +410,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
         if (!response.ok || !result.url) { setNotice(result.error || "이미지를 올리지 못했습니다. 다시 시도해 주세요."); continue; }
         if (cover) { update("coverUrl", result.url); break; }
         const syntax = `![${result.alt || "이미지 설명"}](${result.url} "이미지 설명") {wide}`;
-        if (targetLine === undefined || targetLine === null) {
-          const position = textareaRef.current?.selectionStart ?? nextMarkdown.length;
-          targetLine = nextMarkdown.slice(0, position).split("\n").length - 1;
-        }
-        nextMarkdown = insertMarkdownAtLine(nextMarkdown, targetLine, syntax);
-        targetLine += 3;
+        if (!cover && editor) { editor.chain().focus().insertContent(syntax + "\n").run(); continue; }
+        if (targetLine !== undefined && targetLine !== null) { nextMarkdown = insertMarkdownAtLine(nextMarkdown, targetLine, syntax); targetLine += 3; }
       } catch { setNotice("네트워크 문제로 이미지를 올리지 못했습니다. 작성 내용은 그대로 보관됩니다."); }
     }
     if (!cover) update("markdown", nextMarkdown);
@@ -513,7 +426,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     if (!(draft.markdown || "").trim()) errors.markdown = "기획서 본문을 입력해 주세요.";
     setFieldErrors(errors);
     if (errors.title) titleRef.current?.focus();
-    else if (errors.markdown) textareaRef.current?.focus();
+    else if (errors.markdown) editor?.commands.focus();
     if (Object.keys(errors).length) setNotice(`공개하려면 ${Object.keys(errors).length}가지를 확인해 주세요.`);
     return Object.keys(errors).length === 0;
   }
@@ -630,19 +543,9 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   function handlePaletteColor() {
     const source = draft.markdown || "";
     const { start, end } = selection;
-    if (start !== end) {
-      const wrap = findColorWrap(source, start, end, "color");
-      if (wrap) {
-        const next = source.slice(0, wrap.wrapStart) + wrap.innerText + source.slice(wrap.wrapEnd);
-        update("markdown", next);
-        setPalette(null);
-        requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-          textareaRef.current?.setSelectionRange(wrap.wrapStart, wrap.wrapStart + wrap.innerText.length);
-          setSelection({ start: wrap.wrapStart, end: wrap.wrapStart + wrap.innerText.length });
-        });
-        return;
-      }
+    if (start !== end && editor) {
+      setPalette(null);
+      return;
     }
     setPalette(palette === "text" ? null : "text");
   }
@@ -650,19 +553,11 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   function handlePaletteBg() {
     const source = draft.markdown || "";
     const { start, end } = selection;
-    if (start !== end) {
-      const wrap = findColorWrap(source, start, end, "bg");
-      if (wrap) {
-        const next = source.slice(0, wrap.wrapStart) + wrap.innerText + source.slice(wrap.wrapEnd);
-        update("markdown", next);
-        setPalette(null);
-        requestAnimationFrame(() => {
-          textareaRef.current?.focus();
-          textareaRef.current?.setSelectionRange(wrap.wrapStart, wrap.wrapStart + wrap.innerText.length);
-          setSelection({ start: wrap.wrapStart, end: wrap.wrapStart + wrap.innerText.length });
-        });
-        return;
-      }
+    if (start !== end && editor) {
+      // With Tiptap, removing color wraps can be done by unsetting the mark.
+      // For now, we'll just toggle it off or let the user re-apply.
+      setPalette(null);
+      return;
     }
     setPalette(palette === "background" ? null : "background");
   }
@@ -720,7 +615,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     if (event.dataTransfer.files.length) uploadFiles(event.dataTransfer.files, targetLine);
   }
 
-  const focusMode = !leftPanelOpen && !rightPanelOpen;
+  const focusMode = !isLeftVisible && !isRightVisible;
   function toggleFocusMode() {
     if (focusMode) {
       setLeftPanelOpen(previousWorkspaceView.current.left);
@@ -739,29 +634,13 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
 
   return (
     <main id="main-content" className="admin-studio">
-      <header className="studio-topbar">
-        <Link href="/" className="studio-brand"><BrandMark size={27} variant="reverse"/><span><b>구세군 마포영문</b>기획서 관리</span></Link>
-        <div className={`studio-status state-${savePhase}`}><span/>{statusText}{savePhase === "error" && <button onClick={() => void save("save")}>다시 시도</button>}</div>
-        <div className="studio-user"><b>{userName}</b><span>{userEmail}</span></div>
-      </header>
 
-      <div className="studio-commandbar">
-        <button type="button" className="mobile-library-button" aria-expanded={mobileLibraryOpen} aria-controls="saved-panel" onClick={() => setMobileLibraryOpen(true)}><PanelLeftIcon size={18}/><span>기획서</span></button>
-        <div className="workspace-view-controls" role="group" aria-label="편집 화면 패널 보기">
-          <button type="button" className="has-tip focus-mode-control" data-help={focusMode ? "클릭하면 미리보기와 목록 패널을 엽니다." : "클릭하면 양쪽 패널을 닫고 편집에 집중합니다."} aria-label={focusMode ? "집중 모드 종료" : "집중 모드 시작"} aria-pressed={focusMode} onClick={toggleFocusMode}><FocusIcon size={17}/><span>{focusMode ? "미리보기 켜기" : "미리보기 중.."}</span></button>
-        </div>
-        <div className="mobile-editor-tabs"><button className={mobileTab === "write" ? "active" : ""} onClick={() => setMobileTab("write")}>작성</button><button className={mobileTab === "preview" ? "active" : ""} onClick={() => setMobileTab("preview")}>미리보기</button></div>
-        <div className="studio-actions"><button type="button" onClick={() => void save("save")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "저장 및 반영" : "저장"}</button><button className="publish-button" type="button" onClick={() => void save("publish")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "공개됨" : "공개하기"} <ArrowIcon size={17}/></button></div>
-      </div>
-
-      <div className="mobile-save-state"><span className={`state-${savePhase}`}/><b>{statusText}</b><small>{notice}</small></div>
-
-      <div className={`studio-workspace ${leftPanelOpen ? "" : "left-collapsed"} ${rightPanelOpen ? "" : "right-collapsed"}`}>
-        {!leftPanelOpen && <button type="button" className="panel-reopen panel-reopen-left" aria-label="기획서 목록 열기" aria-controls="saved-panel" aria-expanded="false" onClick={() => setLeftPanelOpen(true)}><PanelLeftIcon size={19}/></button>}
-        {!rightPanelOpen && <button type="button" className="panel-reopen panel-reopen-right" aria-label="미리보기 열기" aria-controls="preview-panel" aria-expanded="false" onClick={() => setRightPanelOpen(true)}><PanelRightIcon size={19}/></button>}
+      <div className={`studio-workspace ${isLeftVisible ? "" : "left-collapsed"} ${isRightVisible ? "" : "right-collapsed"} ${isResizingActive ? "is-resizing" : ""}`} style={workspaceStyle}>
+        {!isLeftVisible && <button type="button" className="panel-reopen panel-reopen-left" aria-label="기획서 목록 열기" aria-controls="saved-panel" aria-expanded="false" onClick={() => setLeftPanelOpen(true)}><PanelLeftOpenIcon size={19}/></button>}
+        {!isRightVisible && <button type="button" className="panel-reopen panel-reopen-right" aria-label="미리보기 열기" aria-controls="preview-panel" aria-expanded="false" onClick={() => setRightPanelOpen(true)}><PanelRightOpenIcon size={19}/></button>}
         {mobileLibraryOpen && <button type="button" className="mobile-library-scrim" aria-label="기획서 목록 닫기" onClick={() => setMobileLibraryOpen(false)}/>}
         <aside id="saved-panel" className={`saved-panel ${mobileLibraryOpen ? "mobile-open" : ""}`}>
-          <div className="panel-header"><span>기획서 <b>{newWorkingDrafts.length + savedDocuments.length}</b></span><button type="button" aria-label="기획서 목록 접기" aria-controls="saved-panel" aria-expanded="true" onClick={() => { setLeftPanelOpen(false); setMobileLibraryOpen(false); }}><PanelLeftIcon size={19}/></button></div>
+          <div className="panel-header"><span>기획서 <b>{newWorkingDrafts.length + savedDocuments.length}</b></span>{leftPanelOpen && <button type="button" aria-label="기획서 목록 접기" aria-controls="saved-panel" aria-expanded="true" onClick={() => { setLeftPanelOpen(false); setMobileLibraryOpen(false); }}><PanelLeftIcon size={19}/></button>}</div>
           <button type="button" className="panel-new-resource" onClick={requestNewDraft}><PlusIcon size={17}/>새 기획서</button>
           {newWorkingDrafts.length > 0 && <div className="panel-section-heading"><span>작성 중</span><b>{newWorkingDrafts.length}</b></div>}
           {newWorkingDrafts.map((item) => <button type="button" className={`document-row working ${draft.clientKey === item.clientKey ? "selected" : ""}`} onClick={() => openWorking(item)} key={item.clientKey}><small><i/>저장 안 됨</small><strong>{item.title || "제목 없는 기획서"}</strong><span>{item.updatedAt?.slice(0, 10)}</span></button>)}
@@ -769,7 +648,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
           {savedDocuments.map(({ document: item, savedDocument, hasUnsavedChanges }) => <button type="button" className={`document-row ${hasUnsavedChanges ? "working" : ""} ${draft.clientKey === item.clientKey ? "selected" : ""}`} onClick={() => openSaved(item)} key={item.clientKey}><small>{hasUnsavedChanges ? <><i/>수정 중</> : savedDocument.isPublished ? "공개" : "초안"}</small><strong>{item.title || "제목 없는 기획서"}</strong><span>{savedDocument.updatedAt?.slice(0, 10)}</span></button>)}
         </aside>
 
-        <section ref={editorPanelRef} className={`editor-panel ${mobileTab === "write" ? "mobile-active" : ""}`} onScroll={handleScroll}>
+        <section ref={editorPanelRef} className={`editor-panel ${mobileTab === "write" ? "mobile-active" : ""}`} onScroll={handleEditorScroll}>
           <div className="editor-metadata">
             <label className={fieldErrors.title ? "has-error" : ""}><span>제목</span><input ref={titleRef} value={draft.title} onChange={(event) => update("title", event.target.value)} placeholder="기획서 제목"/>{fieldErrors.title && <small>{fieldErrors.title}</small>}</label>
             <label className={fieldErrors.summary ? "has-error" : ""}><span>한 줄 소개</span><textarea value={draft.summary} onChange={(event) => update("summary", event.target.value)} placeholder="누가, 무엇을 위해 참고하면 좋은 기획인지 한 문장으로 설명해 주세요." rows={2}/>{fieldErrors.summary && <small>{fieldErrors.summary}</small>}</label>
@@ -797,27 +676,38 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
                 <button type="button" className="has-tip toggle-tool" data-help={"접고 펴는 블록을 자동으로 만듭니다.\n> 펼쳐볼 제목\n  안쪽 내용 (앞에 공백 2칸)"} title="첫 줄에 > 제목을 쓰고, 다음 줄부터 두 칸 들여쓰기해 내용을 작성합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("toggle")}><ToggleIcon size={16}/>접기·펼치기</button>
               </div>
               <div className="toolbar-group toolbar-insert-group"><span>삽입</span>
-                <button type="button" className="has-tip" data-help="색상을 선택해 진행자 전용 참고 상자를 넣습니다." title="진행자 참고 상자를 추가합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => setPalette(palette === "note" ? null : "note")}>진행자 참고</button>
+                <button type="button" className="has-tip" data-help="색상을 선택해 참고 상자를 넣습니다." title="참고 상자를 추가합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => setPalette(palette === "note" ? null : "note")}>진행자 참고</button>
                 <label className="toolbar-image has-tip" data-help="이미지를 현재 커서 위치에 넣습니다. 여러 장을 선택할 수 있습니다." title="이미지를 현재 커서 위치에 넣습니다."><input type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={(event) => event.target.files && uploadFiles(event.target.files)}/><ImageIcon size={16}/>이미지</label>
                 <button type="button" className="has-tip" data-help="유튜브 링크를 넣으면 공개 글에서 바로 재생할 수 있습니다." title="유튜브 영상을 추가합니다." aria-expanded={youtubeOpen} aria-controls="youtube-insert-panel" onClick={() => { setYoutubeOpen((value) => !value); setYoutubeError(""); }}><VideoIcon size={16}/>유튜브</button>
               </div>
             </div></div>
             {youtubeOpen && <form id="youtube-insert-panel" className="youtube-popover" onSubmit={(event) => { event.preventDefault(); insertYoutube(); }}><b>유튜브 영상 추가</b><p>영상 주소를 붙여 넣으면 현재 커서 위치에 들어갑니다.</p><label><span>유튜브 링크</span><input type="url" value={youtubeUrl} onChange={(event) => { setYoutubeUrl(event.target.value); setYoutubeError(""); }} placeholder="https://youtu.be/…" autoFocus/></label><label><span>영상 설명 · 선택</span><input value={youtubeCaption} onChange={(event) => setYoutubeCaption(event.target.value)} placeholder="예: 행사 진행 영상"/></label>{youtubeError && <small>{youtubeError}</small>}<div><button type="button" onClick={() => { setYoutubeOpen(false); setYoutubeError(""); }}>취소</button><button type="submit" className="primary">영상 넣기</button></div></form>}
-            {palette && <div className={`format-palette palette-${palette}`}><b>{palette === "text" ? "글자 색" : palette === "background" ? "배경 색" : "진행자 참고 색상"}</b>{tones.map((tone) => <button type="button" key={tone.value} onMouseDown={(event) => event.preventDefault()} onClick={() => palette === "note" ? insertNote(tone.value) : wrapSelection(`{{${palette === "text" ? "color" : "bg"}:${tone.value}|`, "}}") }><i className={`swatch tone-${tone.value}`}/><span>{tone.label}</span></button>)}</div>}
+            {palette && <div className={`format-palette palette-${palette}`}><b>{palette === "text" ? "글자 색" : palette === "background" ? "배경 색" : "참고 색상"}</b>{tones.map((tone) => <button type="button" key={tone.value} onMouseDown={(event) => event.preventDefault()} onClick={() => palette === "note" ? insertNote(tone.value) : wrapSelection(`{{${palette === "text" ? "color" : "bg"}:${tone.value}|`, "}}") }><i className={`swatch tone-${tone.value}`}/><span>{tone.label}</span></button>)}</div>}
           </div>
 
           <div className="markdown-editor-wrap" onDragOver={handleEditorDragOver} onDragLeave={handleEditorDragLeave} onDrop={handleEditorDrop}>
             {dragHoverLine !== null && <div className="drop-indicator" style={{ top: `${34 + dragHoverLine * 25.9 - (textareaRef.current?.scrollTop || 0)}px` }} />}
-            <textarea ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} value={draft.markdown} onChange={(event) => update("markdown", event.target.value)} onScroll={handleScroll} onSelect={rememberSelection} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onKeyDown={handleTextareaKeyDown} spellCheck placeholder="Markdown으로 기획서를 작성하세요." aria-label="기획서 본문 Markdown"/>
+            <div ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} onScroll={handleEditorScroll}><EditorContent editor={editor} /></div>
             {fieldErrors.markdown && <small className="editor-error">{fieldErrors.markdown}</small>}
             <div className="drop-guidance"><span>이미지를 문장 사이에 끌어 놓으세요.</span><small>JPG · PNG · WEBP, 최대 8MB</small></div>
           </div>
         </section>
 
-        <section id="preview-panel" className={`preview-panel ${mobileTab === "preview" ? "mobile-active" : ""}`} aria-label="실제 공개 화면 미리보기">
-          <div className="preview-label"><span>실제 공개 화면<small>내용과 스타일이 그대로 공개됩니다.</small></span><button type="button" aria-label="미리보기 접기" aria-controls="preview-panel" aria-expanded="true" onClick={() => setRightPanelOpen(false)}><PanelRightIcon size={19}/></button></div>
-          <div ref={previewScrollRef} className="preview-scroll"><DocumentReader document={previewDoc} preview onDropAt={(files, line) => uploadFiles(files, line)} onMoveBlock={(fromStart, fromEnd, targetLine) => update("markdown", moveMarkdownBlock(draft.markdown || "", fromStart, fromEnd, targetLine))}/></div>
+        <section id="preview-panel" className={`preview-panel ${mobileTab === "preview" ? "mobile-active" : ""}`} style={{ position: "relative" }} aria-label="실제 공개 화면 미리보기">
+          <div className={`preview-resizer ${isResizingActive ? 'is-resizing' : ''}`} onPointerDown={startResizing} />
+          <div className="preview-label"><span>실제 공개 화면<small>내용과 스타일이 그대로 공개됩니다.</small></span>{rightPanelOpen && <button type="button" aria-label="미리보기 접기" aria-controls="preview-panel" aria-expanded="true" onClick={() => setRightPanelOpen(false)}><PanelRightIcon size={19}/></button>}</div>
+          <div ref={previewScrollRef} className="preview-scroll"><DocumentReader document={previewDoc} preview /></div>
         </section>
+
+        <div className={`floating-commandbar ${commandbarVisible ? "" : "hidden"}`}>
+          <button type="button" className="mobile-library-button" aria-expanded={mobileLibraryOpen} aria-controls="saved-panel" onClick={() => setMobileLibraryOpen(true)}><PanelLeftIcon size={18}/><span>기획서</span></button>
+          <div className={`studio-status state-${savePhase}`}><span/>{statusText}{savePhase === "error" && <button onClick={() => void save("save")}>다시 시도</button>}</div>
+          <div className="workspace-view-controls" role="group" aria-label="편집 화면 패널 보기">
+            <button type="button" className="has-tip focus-mode-control" data-help={focusMode ? "클릭하면 미리보기와 목록 패널을 엽니다." : "클릭하면 양쪽 패널을 닫고 편집에 집중합니다."} aria-label={focusMode ? "집중 모드 종료" : "집중 모드 시작"} aria-pressed={focusMode} onClick={toggleFocusMode}><FocusIcon size={17}/><span>{focusMode ? "미리보기 켜기" : "미리보기 중.."}</span></button>
+          </div>
+          <div className="mobile-editor-tabs"><button className={mobileTab === "write" ? "active" : ""} onClick={() => setMobileTab("write")}>작성</button><button className={mobileTab === "preview" ? "active" : ""} onClick={() => setMobileTab("preview")}>미리보기</button></div>
+          <div className="studio-actions"><button type="button" onClick={() => void save("save")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "저장 및 반영" : "저장"}</button><button className="publish-button" type="button" onClick={() => void save("publish")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "공개됨" : "공개하기"} <ArrowIcon size={17}/></button></div>
+        </div>
       </div>
 
     </main>

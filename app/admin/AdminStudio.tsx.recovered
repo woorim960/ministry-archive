@@ -1,0 +1,25 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { BrandMark } from "@/components/BrandMark";
+import { ArrowIcon, FocusIcon, ImageIcon, PanelLeftIcon, PanelRightIcon, PlusIcon, ToggleIcon, VideoIcon } from "@/components/Icons";
+import { DocumentReader } from "@/components/DocumentReader";
+import { buildSidebarDocuments, createLocalClientKey, mergeSavedDocuments, removeWorkingDocument, serverClientKey, upsertWorkingDocument } from "@/lib/editor-workspace";
+import { insertMarkdownAtLine, moveMarkdownBlock, youtubeId } from "@/lib/markdown";
+import { slugify } from "@/lib/format";
+import type { ResourceSummary } from "@/types/content";
+
+type Draft = ResourceSummary & { isPublished boolean; clientKey string };
+type SavePhase = "ready" | "dirty" | "saving" | "saved" | "error";
+type PaletteKind = "text" | "background" | "note" | null;
+
+const LOCAL_DRAFT_KEY = "mapo-planning-studio-draft-v2";
+const WORKING_DRAFTS_KEY = "mapo-planning-studio-drafts-v3";
+const WORKSPACE_VIEW_KEY = "mapo-planning-studio-view-v1";
+const tones = [
+  { value "red", label "중요" }, { value "blue", label "안내" }, { value "green", label "팁" },
+  { value "amber", label "주의" }, { value "violet", label "아이디어" }, { value "neutral", label "메모" },
+] as const;
+
+const starterMarkdown = `## 기획 의도
