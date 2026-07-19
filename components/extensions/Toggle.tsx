@@ -64,6 +64,44 @@ export const Toggle = Node.create({
           state.write(`:::toggle ${node.attrs.title}\n`);
           state.renderContent(node);
           state.write('\n:::\n\n');
+        },
+        parse: {
+          setup(md: any) {
+            md.block.ruler.before('paragraph', 'toggle', (state: any, startLine: number, endLine: number, silent: boolean) => {
+              const pos = state.bMarks[startLine] + state.tShift[startLine];
+              const max = state.eMarks[startLine];
+              const line = state.src.slice(pos, max);
+              const match = line.match(/^:::toggle\s*(.*)$/i);
+              
+              if (!match) return false;
+              if (silent) return true;
+              
+              let nextLine = startLine + 1;
+              let found = false;
+              while (nextLine < endLine) {
+                const nextPos = state.bMarks[nextLine] + state.tShift[nextLine];
+                const nextMax = state.eMarks[nextLine];
+                const nLine = state.src.slice(nextPos, nextMax);
+                if (nLine.trim() === ':::') {
+                  found = true;
+                  break;
+                }
+                nextLine++;
+              }
+              
+              if (!found) return false;
+              
+              state.line = nextLine + 1;
+              
+              const tokenOpen = state.push('toggle_open', 'div', 1);
+              tokenOpen.attrs = [['data-type', 'toggle'], ['title', match[1] || '펼쳐보기']];
+              
+              state.md.block.tokenize(state, startLine + 1, nextLine);
+              
+              state.push('toggle_close', 'div', -1);
+              return true;
+            });
+          }
         }
       }
     };

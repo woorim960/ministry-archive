@@ -10,6 +10,8 @@ import { Markdown } from "tiptap-markdown";
 import { BrandMark } from "@/components/BrandMark";
 import { ArrowIcon, FocusIcon, ImageIcon, PanelLeftIcon, PanelRightIcon, PanelLeftOpenIcon, PanelRightOpenIcon, PlusIcon, ToggleIcon, VideoIcon } from "@/components/Icons";
 import { DocumentReader } from "@/components/DocumentReader";
+import { Callout } from "@/components/extensions/Callout";
+import { Toggle } from "@/components/extensions/Toggle";
 import { buildSidebarDocuments, createLocalClientKey, mergeSavedDocuments, removeWorkingDocument, serverClientKey, upsertWorkingDocument } from "@/lib/editor-workspace";
 import { insertMarkdownAtLine, moveMarkdownBlock, youtubeId } from "@/lib/markdown";
 import { slugify } from "@/lib/format";
@@ -156,6 +158,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       StarterKit,
       ImageExtension.configure({ inline: true, allowBase64: true }),
       Placeholder.configure({ placeholder: "Markdown으로 기획서를 작성하세요." }),
+      Callout,
+      Toggle,
       Markdown,
     ],
     content: draft.markdown,
@@ -362,7 +366,10 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     if (kind === "heading") { editor.chain().focus().toggleHeading({ level: 2 }).run(); return; }
     if (kind === "list") { editor.chain().focus().toggleBulletList().run(); return; }
     if (kind === "quote") { editor.chain().focus().toggleBlockquote().run(); return; }
-    if (kind === "toggle") { editor.chain().focus().insertContent("> 펼쳐볼 제목\n  안쪽 내용을 입력하세요.").run(); return; }
+    if (kind === "toggle") {
+      editor.chain().focus().insertContent({ type: 'toggle', attrs: { title: '펼쳐볼 제목' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: '안쪽 내용을 입력하세요.' }] }] }).run();
+      return;
+    }
   }
 
   function insertYoutube() {
@@ -383,7 +390,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     if (!editor) return;
     const { from, to } = editor.state.selection;
     const selected = editor.state.doc.textBetween(from, to, " ") || "현장에서 꼭 기억할 내용을 적어주세요.";
-    editor.chain().focus().insertContent(`\n:::note[${tone}] 진행자 참고\n${selected}\n:::\n`).run();
+    editor.chain().focus().insertContent({ type: 'callout', attrs: { tone, title: '참고' }, content: [{ type: 'paragraph', content: [{ type: 'text', text: selected }] }] }).run();
   }
 
   function commitTags(raw = tagInput) {

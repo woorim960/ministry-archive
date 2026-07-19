@@ -61,6 +61,44 @@ export const Callout = Node.create({
           state.write(`:::note[${node.attrs.tone}] ${node.attrs.title}\n`);
           state.renderContent(node);
           state.write('\n:::\n\n');
+        },
+        parse: {
+          setup(md: any) {
+            md.block.ruler.before('paragraph', 'callout', (state: any, startLine: number, endLine: number, silent: boolean) => {
+              const pos = state.bMarks[startLine] + state.tShift[startLine];
+              const max = state.eMarks[startLine];
+              const line = state.src.slice(pos, max);
+              const match = line.match(/^:::note\[(.*?)\]\s*(.*)$/i);
+              
+              if (!match) return false;
+              if (silent) return true;
+              
+              let nextLine = startLine + 1;
+              let found = false;
+              while (nextLine < endLine) {
+                const nextPos = state.bMarks[nextLine] + state.tShift[nextLine];
+                const nextMax = state.eMarks[nextLine];
+                const nLine = state.src.slice(nextPos, nextMax);
+                if (nLine.trim() === ':::') {
+                  found = true;
+                  break;
+                }
+                nextLine++;
+              }
+              
+              if (!found) return false;
+              
+              state.line = nextLine + 1;
+              
+              const tokenOpen = state.push('callout_open', 'div', 1);
+              tokenOpen.attrs = [['data-type', 'callout'], ['tone', match[1]], ['title', match[2] || '참고']];
+              
+              state.md.block.tokenize(state, startLine + 1, nextLine);
+              
+              state.push('callout_close', 'div', -1);
+              return true;
+            });
+          }
         }
       }
     };
