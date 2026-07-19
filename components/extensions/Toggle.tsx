@@ -6,9 +6,27 @@ const ToggleComponent = ({ node, updateAttributes }: any) => {
   const [open, setOpen] = useState(true);
   const [title, setTitle] = useState(node.attrs.title || "");
 
+  const isComposing = React.useRef(false);
+
   useEffect(() => {
     setTitle(node.attrs.title || "");
   }, [node.attrs.title]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTitle(e.target.value);
+    if (!isComposing.current) {
+      updateAttributes({ title: e.target.value });
+    }
+  };
+
+  const handleCompositionStart = () => {
+    isComposing.current = true;
+  };
+
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+    isComposing.current = false;
+    updateAttributes({ title: e.currentTarget.value });
+  };
 
   const handleBlur = () => {
     if (title !== node.attrs.title) updateAttributes({ title });
@@ -17,7 +35,9 @@ const ToggleComponent = ({ node, updateAttributes }: any) => {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      (e.currentTarget as HTMLInputElement).blur();
+      if (!isComposing.current) {
+        (e.currentTarget as HTMLInputElement).blur();
+      }
     }
   };
 
@@ -29,7 +49,9 @@ const ToggleComponent = ({ node, updateAttributes }: any) => {
           type="text"
           placeholder="펼쳐볼 제목"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={handleChange}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           onClick={(e) => e.stopPropagation()}
