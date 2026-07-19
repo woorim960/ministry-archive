@@ -1,26 +1,43 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from '@tiptap/react';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const ToggleComponent = ({ node, updateAttributes }: any) => {
   const [open, setOpen] = useState(true);
+  const [title, setTitle] = useState(node.attrs.title || "");
+
+  useEffect(() => {
+    setTitle(node.attrs.title || "");
+  }, [node.attrs.title]);
+
+  const handleBlur = () => {
+    if (title !== node.attrs.title) updateAttributes({ title });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      (e.currentTarget as HTMLInputElement).blur();
+    }
+  };
 
   return (
-    <NodeViewWrapper className="document-toggle editor-toggle">
-      <div className="toggle-summary-editor">
+    <NodeViewWrapper className={`document-toggle editor-toggle ${open ? 'open' : ''}`} data-open={open ? "true" : undefined}>
+      <summary className="toggle-summary-editor" onClick={() => setOpen(!open)}>
         <input
           className="toggle-title-input"
           type="text"
           placeholder="펼쳐볼 제목"
-          value={node.attrs.title}
-          onChange={(e) => updateAttributes({ title: e.target.value })}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          onClick={(e) => e.stopPropagation()}
         />
-        <button type="button" onClick={() => setOpen(!open)} className="toggle-icon-button">
-          <i aria-hidden="true" style={{ transform: open ? 'rotate(225deg) translate(-2px, -2px)' : 'rotate(45deg) translateY(-2px)' }} />
-        </button>
-      </div>
+        <i aria-hidden="true" style={{ transform: open ? 'rotate(225deg) translate(-2px, -2px)' : 'rotate(45deg) translateY(-2px)' }} />
+      </summary>
       <div className="toggle-content-editor" style={{ display: open ? 'block' : 'none' }}>
-        <NodeViewContent />
+        <NodeViewContent as="div" />
       </div>
     </NodeViewWrapper>
   );
