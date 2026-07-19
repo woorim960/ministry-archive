@@ -683,7 +683,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
                 <button type="button" className="has-tip toggle-tool" data-help={"접고 펴는 블록을 자동으로 만듭니다.\n> 펼쳐볼 제목\n  안쪽 내용 (앞에 공백 2칸)"} title="첫 줄에 > 제목을 쓰고, 다음 줄부터 두 칸 들여쓰기해 내용을 작성합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => applyBlock("toggle")}><ToggleIcon size={16}/>접기·펼치기</button>
               </div>
               <div className="toolbar-group toolbar-insert-group"><span>삽입</span>
-                <button type="button" className="has-tip" data-help="색상을 선택해 참고 상자를 넣습니다." title="참고 상자를 추가합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => setPalette(palette === "note" ? null : "note")}>참고</button>
+                <button type="button" className="has-tip" data-help="색상을 선택해 참고 상자를 넣습니다." title="참고 상자를 추가합니다." onMouseDown={(event) => event.preventDefault()} onClick={() => setPalette(palette === "note" ? null : "note")}>참고글</button>
                 <label className="toolbar-image has-tip" data-help="이미지를 현재 커서 위치에 넣습니다. 여러 장을 선택할 수 있습니다." title="이미지를 현재 커서 위치에 넣습니다."><input type="file" multiple accept="image/png,image/jpeg,image/webp" onChange={(event) => event.target.files && uploadFiles(event.target.files)}/><ImageIcon size={16}/>이미지</label>
                 <button type="button" className="has-tip" data-help="유튜브 링크를 넣으면 공개 글에서 바로 재생할 수 있습니다." title="유튜브 영상을 추가합니다." aria-expanded={youtubeOpen} aria-controls="youtube-insert-panel" onClick={() => { setYoutubeOpen((value) => !value); setYoutubeError(""); }}><VideoIcon size={16}/>유튜브</button>
               </div>
