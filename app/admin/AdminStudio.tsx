@@ -256,6 +256,13 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     return () => window.clearTimeout(recoveryTimer);
   }, []);
 
+  useEffect(() => {
+    if (!workspaceHydrated) return;
+    try {
+      window.localStorage.setItem(WORKING_DRAFTS_KEY, JSON.stringify({ drafts: workingDrafts, activeKey }));
+    } catch { /* 용량 초과 등 무시 */ }
+  }, [workingDrafts, activeKey, workspaceHydrated]);
+
   function deleteTargetDraft(clientKey: string, slug?: string) {
     if (!window.confirm("이 문서를 정말 삭제하시겠습니까? (저장된 문서인 경우 서버에서도 영구 삭제됩니다)")) return;
     if (slug) {
@@ -820,5 +827,5 @@ function normalizeDraft(value: Partial<Draft> & Pick<Draft, "id">): Draft {
 }
 
 function isUntouchedDraft(value: Draft) {
-  return !value.id && !value.title.trim() && !value.summary.trim() && !value.audience.trim() && !value.duration.trim() && !value.participants?.trim() && !value.coverUrl && value.tags.length === 0 && (value.markdown || "").trim() === starterMarkdown.trim();
+  return !value.id && !value.title.trim() && !value.summary.trim() && !value.audience.trim() && !value.duration.trim() && !value.participants?.trim() && !value.coverUrl && value.tags.length === 0 && (value.markdown || "").trim() === starterMarkdown.trim() && (!value.docType || value.docType === "general");
 }
