@@ -2,12 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useRouter } from "next/navigation";
 import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import { Heading } from "@tiptap/extension-heading";
-import ImageExtension from "@tiptap/extension-image";
-import Placeholder from "@tiptap/extension-placeholder";
-import { Markdown } from "tiptap-markdown";
+import { getTiptapExtensions } from "@/lib/tiptap-extensions";
 import { BrandMark } from "@/components/BrandMark";
 import { ArrowIcon, FocusIcon, ImageIcon, PanelLeftIcon, PanelRightIcon, PanelLeftOpenIcon, PanelRightOpenIcon, PlusIcon, ToggleIcon, VideoIcon } from "@/components/Icons";
 import { DocumentReader } from "@/components/DocumentReader";
@@ -22,25 +19,7 @@ type Draft = ResourceSummary & { isPublished: boolean; clientKey: string };
 type SavePhase = "ready" | "dirty" | "saving" | "saved" | "error";
 type PaletteKind = "text" | "background" | "note" | null;
 
-const CustomHeading = Heading.extend({
-  addKeyboardShortcuts() {
-    return {
-      ...this.parent?.(),
-      Enter: ({ editor }) => {
-        const { state } = editor;
-        const { selection } = state;
-        const { $from, empty } = selection;
-        if (!empty || $from.parent.type.name !== "heading") return false;
-        
-        if ($from.parent.content.size > 0 && $from.parentOffset === $from.parent.content.size) {
-          const pos = $from.after();
-          return editor.chain().insertContentAt(pos, { type: "paragraph" }).focus(pos + 1).run();
-        }
-        return false;
-      },
-    };
-  },
-});
+
 
 const LOCAL_DRAFT_KEY = "mapo-planning-studio-draft-v2";
 const WORKING_DRAFTS_KEY = "mapo-planning-studio-drafts-v3";
@@ -80,6 +59,7 @@ function createEmptyDraft(clientKey = "local:initial"): Draft {
 }
 
 export function AdminStudio({ userName, userEmail }: { userName: string; userEmail: string }) {
+  const router = useRouter();
   const [draft, setDraft] = useState<Draft>(() => createEmptyDraft());
   const [activeKey, setActiveKey] = useState("local:initial");
   const [workingDrafts, setWorkingDrafts] = useState<Draft[]>(() => [createEmptyDraft()]);
@@ -90,8 +70,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   const [notice, setNotice] = useState("빈 초안도 바로 저장할 수 있습니다.");
   const [uploading, setUploading] = useState(false);
   const [mobileTab, setMobileTab] = useState<"write" | "preview">("write");
-  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  const [leftPanelOpen, setLeftPanelOpen] = useState(false);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [leftPanelHover, setLeftPanelHover] = useState(false);
   const [rightPanelHover, setRightPanelHover] = useState(false);
   const [previewWidth, setPreviewWidth] = useState<number | null>(null);
@@ -172,15 +152,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
 
   const textareaRef = useRef<HTMLDivElement>(null);
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({ heading: false }),
-      CustomHeading,
-      ImageExtension.configure({ inline: true, allowBase64: true }),
-      Placeholder.configure({ placeholder: "Markdown으로 기획서를 작성하세요." }),
-      Callout,
-      Toggle,
-      Markdown,
-    ],
+    extensions: getTiptapExtensions({ placeholder: "Markdown으로 기획서를 작성하세요." }),
     content: draft.markdown,
     onUpdate: ({ editor }) => {
       const nextMarkdown = (editor.storage as any).markdown.getMarkdown();
@@ -193,8 +165,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       editor.commands.setContent(draft.markdown || "");
     }
   }, [draft.markdown, editor]);
-  const [dragHoverLine, setDragHoverLine] = useState<number | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
+  const summaryRef = useRef<HTMLInputElement>(null);
   const editorPanelRef = useRef<HTMLDivElement>(null);
   const previewScrollRef = useRef<HTMLDivElement>(null);
   const toolbarViewportRef = useRef<HTMLDivElement>(null);
@@ -258,6 +230,17 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   }, []);
 
   useEffect(() => {
+    // 툴바 그룹이 스크롤될 때 그림자 처리 (에디터 내 툴바)
+    // 이펙트는 그대로 둠
+  }, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), 3500);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
     if (!workspaceHydrated) return;
     try {
       window.localStorage.setItem(WORKING_DRAFTS_KEY, JSON.stringify({ drafts: workingDrafts, activeKey }));
@@ -276,6 +259,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       fetch(`/api/admin/resources/${slug}`, { method: "DELETE" }).then(res => {
         if (res.ok) {
            loadSaved();
+           setWorkingDrafts(current => removeWorkingDocument(current, clientKey));
            setNotice("문서가 영구 삭제되었습니다.");
            if (draft.clientKey === clientKey) {
              const empty = createEmptyDraft(createLocalClientKey());
@@ -306,8 +290,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
         const stored = window.localStorage.getItem(WORKSPACE_VIEW_KEY);
         if (stored) {
           const view = JSON.parse(stored) as { left?: boolean; right?: boolean };
-          const left = view.left !== false;
-          const right = view.right !== false;
+          const left = view.left === true;
+          const right = view.right === true;
           setLeftPanelOpen(left);
           setRightPanelOpen(right);
           if (left || right) previousWorkspaceView.current = { left, right };
@@ -472,32 +456,59 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     setNotice(`이미지 ${images.length}개를 업로드하고 있습니다…`);
     let nextMarkdown = draft.markdown || "";
     let targetLine = line;
+    let hasError = false;
     for (const file of images) {
       const data = new FormData(); data.append("file", file); data.append("alt", file.name.replace(/\.[^.]+$/, ""));
       try {
         const response = await fetch("/api/admin/upload", { method: "POST", body: data });
-        const result = await response.json() as { error?: string; url?: string; alt?: string };
-        if (!response.ok || !result.url) { setNotice(result.error || "이미지를 올리지 못했습니다. 다시 시도해 주세요."); continue; }
+        let result: { error?: string; url?: string; alt?: string } = {};
+        
+        try {
+          result = await response.json();
+        } catch {
+          // JSON 파싱 실패 시 (예: Next.js 413 Payload Too Large)
+          hasError = true;
+          setNotice("파일 용량이 너무 크거나 서버가 응답하지 않습니다.");
+          continue;
+        }
+        
+        if (!response.ok || !result.url) { 
+          hasError = true;
+          setNotice(result.error || "이미지를 올리지 못했습니다. 다시 시도해 주세요.");
+          continue;
+        }
         if (cover) { update("coverUrl", result.url); break; }
         const syntax = `![${result.alt || "이미지 설명"}](${result.url} "이미지 설명")`;
         if (!cover && editor) { editor.chain().focus().insertContent(syntax).run(); continue; }
         if (targetLine !== undefined && targetLine !== null) { nextMarkdown = insertMarkdownAtLine(nextMarkdown, targetLine, syntax); targetLine += 3; }
-      } catch { setNotice("네트워크 문제로 이미지를 올리지 못했습니다. 작성 내용은 그대로 보관됩니다."); }
+      } catch (err) { 
+        hasError = true;
+        setNotice("네트워크 문제로 이미지를 올리지 못했습니다."); 
+      }
     }
     if (!cover) update("markdown", nextMarkdown);
     setUploading(false);
-    setNotice("이미지를 원하는 위치에 추가했습니다. 캡션과 설명을 확인해 주세요.");
+    if (!hasError) setNotice("이미지를 원하는 위치에 추가했습니다. 캡션과 설명을 확인해 주세요.");
   }
 
   function validatePublish() {
     const errors: Record<string, string> = {};
-    if (!draft.title.trim()) errors.title = draft.docType === "proposal" ? "공개할 기획서의 제목을 입력해 주세요." : draft.docType === "meeting" ? "회의 안건 또는 제목을 입력해 주세요." : "공개할 글의 제목을 입력해 주세요.";
-    if (!draft.summary.trim()) errors.summary = "목록에 표시될 한 줄 소개를 적어주세요.";
-    if (!(draft.markdown || "").trim()) errors.markdown = "본문을 입력해 주세요.";
+    if (!String(draft.title || "").trim()) errors.title = draft.docType === "proposal" ? "기획서 제목을 입력해 주세요." : draft.docType === "meeting" ? "회의 안건 또는 제목을 입력해 주세요." : "공개할 글의 제목을 입력해 주세요.";
+    if (!String(draft.summary || "").trim()) errors.summary = "목록에 표시될 한 줄 소개를 적어주세요.";
+    if (!String(draft.markdown || "").trim()) errors.markdown = "본문을 입력해 주세요.";
     setFieldErrors(errors);
-    if (errors.title) titleRef.current?.focus();
-    else if (errors.markdown) editor?.commands.focus();
-    if (Object.keys(errors).length) setNotice(`공개하려면 ${Object.keys(errors).length}가지를 확인해 주세요.`);
+    
+    if (errors.title) {
+      titleRef.current?.focus();
+      setNotice(errors.title);
+    } else if (errors.summary) {
+      summaryRef.current?.focus();
+      setNotice(errors.summary);
+    } else if (errors.markdown) {
+      editor?.commands.focus();
+      setNotice(errors.markdown);
+    }
+    
     return Object.keys(errors).length === 0;
   }
 
@@ -526,7 +537,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       const time = new Intl.DateTimeFormat("ko-KR", { hour: "numeric", minute: "2-digit" }).format(new Date());
       setSavedAt(time); setNotice(mode === "publish" ? "공개되었습니다." : publishState ? "저장한 내용이 공개 글에 반영되었습니다." : "초안이 저장되었습니다.");
       if (mode === "publish") {
-        window.location.href = `/documents/${resource.slug}`;
+        const finalSlug = resource.slug || draft.slug || "unknown-slug";
+        router.push(`/documents/${encodeURIComponent(finalSlug)}`);
       }
       return true;
     } catch {
@@ -664,25 +676,21 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
 
   function handleEditorDragOver(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault();
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const rect = textarea.getBoundingClientRect();
-    const y = event.clientY - rect.top + textarea.scrollTop - 34; // 34px is padding-top
-    const line = Math.max(0, Math.floor(y / 25.9)); // 25.9px is approx line-height
-    const maxLine = (draft.markdown || "").split("\n").length;
-    setDragHoverLine(Math.min(line, maxLine));
   }
 
   function handleEditorDragLeave(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault();
-    setDragHoverLine(null);
   }
 
   function handleEditorDrop(event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault();
-    const targetLine = dragHoverLine;
-    setDragHoverLine(null);
-    if (event.dataTransfer.files.length) uploadFiles(event.dataTransfer.files, targetLine);
+    if (event.dataTransfer.files.length && editor) {
+      const coordinates = editor.view.posAtCoords({ left: event.clientX, top: event.clientY });
+      if (coordinates) {
+        editor.commands.setTextSelection(coordinates.pos);
+      }
+      uploadFiles(event.dataTransfer.files, null);
+    }
   }
 
   const focusMode = !isLeftVisible && !isRightVisible;
@@ -704,6 +712,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
 
   return (
     <main id="main-content" className="admin-studio">
+      {notice && <div className="studio-toast-notice">{notice}</div>}
 
       <div className={`studio-workspace ${isLeftVisible ? "" : "left-collapsed"} ${isRightVisible ? "" : "right-collapsed"} ${isResizingActive ? "is-resizing" : ""}`}>
         {!isLeftVisible && <button type="button" className="panel-reopen panel-reopen-left" aria-label="문서 목록 열기" aria-controls="saved-panel" aria-expanded="false" onClick={() => setLeftPanelOpen(true)}><PanelLeftOpenIcon size={19}/></button>}
@@ -751,7 +760,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
               <button type="button" className={draft.docType === "proposal" ? "active" : ""} onClick={() => update("docType", "proposal")} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--line-dark)', background: draft.docType === "proposal" ? 'var(--blue)' : '#fff', color: draft.docType === "proposal" ? '#fff' : 'inherit', fontSize: '11px', fontWeight: 700 }}>기획서</button>
             </div>
             <label className={fieldErrors.title ? "has-error" : ""}><span>제목</span><input ref={titleRef} value={draft.title} onChange={(event) => update("title", event.target.value)} placeholder={draft.docType === "proposal" ? "기획서 제목" : draft.docType === "meeting" ? "회의 안건 또는 제목" : "글 제목"}/>{fieldErrors.title && <small>{fieldErrors.title}</small>}</label>
-            <label className={fieldErrors.summary ? "has-error" : ""}><span>한 줄 소개</span><input value={draft.summary} onChange={(event) => update("summary", event.target.value)} placeholder="목록에 표시될 한 줄 소개를 적어주세요."/>{fieldErrors.summary && <small>{fieldErrors.summary}</small>}</label>
+            <label className={fieldErrors.summary ? "has-error" : ""}><span>한 줄 소개</span><input ref={summaryRef} value={draft.summary} onChange={(event) => update("summary", event.target.value)} placeholder="목록에 표시될 한 줄 소개를 적어주세요."/>{fieldErrors.summary && <small>{fieldErrors.summary}</small>}</label>
             {draft.docType === "proposal" && (
               <>
                 <label><span>대상</span><input value={draft.audience || ""} onChange={(e) => update("audience", e.target.value)} placeholder="예: 초등부, 청년부"/></label>
@@ -837,10 +846,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
           </div>
 
           <div className="markdown-editor-wrap" onDragOver={handleEditorDragOver} onDragLeave={handleEditorDragLeave} onDrop={handleEditorDrop}>
-            {dragHoverLine !== null && <div className="drop-indicator" style={{ top: `${34 + dragHoverLine * 25.9 - (textareaRef.current?.scrollTop || 0)}px` }} />}
             <div ref={textareaRef} className={`markdown-editor ${fieldErrors.markdown ? "has-error" : ""}`} onScroll={handleEditorScroll}><EditorContent editor={editor} /></div>
             {fieldErrors.markdown && <small className="editor-error">{fieldErrors.markdown}</small>}
-            <div className="drop-guidance"><span>이미지를 문장 사이에 끌어 놓으세요.</span><small>JPG · PNG · WEBP, 최대 8MB</small></div>
           </div>
         </section>
 
@@ -862,7 +869,12 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       </div>
 
       {deleteConfirmTarget && (
-        <div className="delete-modal-overlay" onPointerDown={() => setDeleteConfirmTarget(null)}>
+        <div className="delete-modal-overlay" onPointerDown={() => setDeleteConfirmTarget(null)} onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            executeDelete();
+          }
+        }}>
           <div className="delete-modal-box" onPointerDown={(e) => e.stopPropagation()}>
             <div className="delete-modal-icon">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
@@ -871,7 +883,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
             <p>이 기기에 보관된 작성 내용은 즉시 삭제됩니다.<br/>저장된 문서인 경우 서버에서도 영구 삭제되며 복구할 수 없습니다.</p>
             <div className="delete-modal-actions">
               <button type="button" className="delete-modal-cancel" onClick={() => setDeleteConfirmTarget(null)}>취소</button>
-              <button type="button" className="delete-modal-confirm" onClick={executeDelete}>영구 삭제</button>
+              <button type="button" autoFocus className="delete-modal-confirm" onClick={executeDelete}>영구 삭제</button>
             </div>
           </div>
         </div>

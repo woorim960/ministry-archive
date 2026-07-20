@@ -16,15 +16,31 @@ async function getResource(slug: string): Promise<ResourceSummary | null> {
   if (seed) return seed;
   try {
     const db = await getDb();
-    const [row] = await db.select().from(resources).where(eq(resources.slug, slug)).limit(1);
+    const decodedSlug = decodeURIComponent(slug);
+    let [row] = await db.select().from(resources).where(eq(resources.slug, slug)).limit(1);
+    if (!row && decodedSlug !== slug) {
+      const result = await db.select().from(resources).where(eq(resources.slug, decodedSlug)).limit(1);
+      row = result[0];
+    }
     if (!row?.isPublished) return null;
     const docType = row.eyebrow === "회의록" ? "meeting" : row.eyebrow === "기획서" ? "proposal" : "general";
     let customMeta = [];
-    try { customMeta = JSON.parse(row.blocksJson || "[]"); } catch {}
+    let date = "";
+    let location = "";
+    try { 
+      const parsed = JSON.parse(row.blocksJson || "{}");
+      if (Array.isArray(parsed)) {
+        customMeta = parsed;
+      } else if (parsed && typeof parsed === "object") {
+        customMeta = Array.isArray(parsed.customMeta) ? parsed.customMeta : [];
+        date = parsed.date || "";
+        location = parsed.location || "";
+      }
+    } catch {}
     
     return {
       id: row.id, slug: row.slug, title: row.title, summary: row.summary, category: row.category,
-      docType, customMeta,
+      docType, customMeta, date, location,
       audience: row.audience, duration: row.duration, participants: row.participants,
       difficulty: row.difficulty, coverUrl: row.coverUrl, tags: safeTags(row.tagsJson),
       markdown: row.contentFormat === "markdown-v1" ? upgradeMarkdownV1(row.bodyMarkdown) : row.bodyMarkdown,

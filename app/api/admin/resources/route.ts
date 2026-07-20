@@ -5,6 +5,8 @@ import { requireAdminApi } from "@/lib/admin-auth";
 import { slugify } from "@/lib/format";
 import { upgradeMarkdownV1 } from "@/lib/markdown";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const auth = await requireAdminApi();
   if (!auth.ok) return auth.response;
@@ -28,7 +30,8 @@ export async function POST(request: Request) {
     const summary = String(body.summary ?? "").trim();
     const markdown = String(body.markdown ?? "");
     const isPublished = Boolean(body.isPublished);
-    const slug = slugify(String(body.slug ?? "").trim() || title || `draft-${id.slice(0, 8)}`);
+    let slug = slugify(String(body.slug ?? "").trim() || title);
+    if (!slug) slug = `draft-${id.slice(0, 8)}`;
     if (isPublished && (!title || !summary || !markdown.trim())) return Response.json({ error: "공개하려면 제목, 한 줄 소개와 본문을 모두 입력해 주세요." }, { status: 400 });
     if (markdown.length > 250_000) return Response.json({ error: "본문이 250KB를 넘었습니다. 이미지는 파일로 업로드해 주세요." }, { status: 413 });
     if (isPublished && /!\[\s*\]\(/.test(markdown)) return Response.json({ error: "공개하기 전에 모든 이미지에 설명을 입력해 주세요." }, { status: 400 });
@@ -42,17 +45,23 @@ export async function POST(request: Request) {
     const existing = requestedExisting || (slugOwner?.id === "" && requestedId === "" ? slugOwner : undefined);
     const now = new Date().toISOString();
     
-    let customMetaJson = "[]";
+    let customMetaJson = "{}";
+    let validMeta: Array<{label: string, value: string}> = [];
     if (Array.isArray(body.customMeta)) {
-      const validMeta = body.customMeta.map(m => {
+      validMeta = body.customMeta.map(m => {
         if (typeof m === 'object' && m !== null) {
           const item = m as Record<string, unknown>;
           return { label: String(item.label || "").trim().slice(0, 50), value: String(item.value || "").trim().slice(0, 200) };
         }
         return null;
-      }).filter(m => m && m.label && m.value);
-      customMetaJson = JSON.stringify(validMeta);
+      }).filter(m => m && m.label && m.value) as Array<{label: string, value: string}>;
     }
+    const blocksData = {
+      customMeta: validMeta,
+      date: String(body.date ?? "").slice(0, 50),
+      location: String(body.location ?? "").slice(0, 50)
+    };
+    customMetaJson = JSON.stringify(blocksData);
 
     const values = {
       slug, title, summary, eyebrow,
@@ -87,9 +96,20 @@ export async function POST(request: Request) {
 
 function toResource(row: typeof resources.$inferSelect) {
   const docType = row.eyebrow === "회의록" ? "meeting" : row.eyebrow === "기획서" ? "proposal" : "general";
-  let customMeta = [];
-  try { customMeta = JSON.parse(row.blocksJson || "[]"); } catch {}
-  return { ...row, docType, customMeta, markdown: row.contentFormat === "markdown-v1" ? upgradeMarkdownV1(row.bodyMarkdown) : row.bodyMarkdown, tags: safeTags(row.tagsJson), bodyMarkdown: undefined, tagsJson: undefined, blocksJson: undefined };
+  let customMeta: Array<{label: string, value: string}> = [];
+  let date = "";
+  let location = "";
+  try { 
+    const parsed = JSON.parse(row.blocksJson || "{}");
+    if (Array.isArray(parsed)) {
+      customMeta = parsed;
+    } else if (parsed && typeof parsed === "object") {
+      customMeta = Array.isArray(parsed.customMeta) ? parsed.customMeta : [];
+      date = parsed.date || "";
+      location = parsed.location || "";
+    }
+  } catch {}
+  return { ...row, docType, customMeta, date, location, markdown: row.contentFormat === "markdown-v1" ? upgradeMarkdownV1(row.bodyMarkdown) : row.bodyMarkdown, tags: safeTags(row.tagsJson), bodyMarkdown: undefined, tagsJson: undefined, blocksJson: undefined };
 }
 
 function safeTags(value: string): string[] {

@@ -16,6 +16,7 @@
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
   },
   "dependencies": {
+    "@tiptap/extension-blockquote": "^3.28.0",
     "@tiptap/extension-image": "^3.28.0",
     "@tiptap/extension-placeholder": "^3.28.0",
     "@tiptap/pm": "^3.28.0",

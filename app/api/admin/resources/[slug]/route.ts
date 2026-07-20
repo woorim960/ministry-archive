@@ -14,7 +14,13 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 
   try {
     const db = await getDb();
-    const result = await db.delete(resources).where(eq(resources.slug, slug));
+    const decodedSlug = decodeURIComponent(slug);
+    
+    // First try with original slug, if not found try decoded slug
+    let result = await db.delete(resources).where(eq(resources.slug, slug));
+    if (decodedSlug !== slug) {
+       await db.delete(resources).where(eq(resources.slug, decodedSlug));
+    }
     
     // In Drizzle SQLite with LibSQL/BetterSQLite3, we might not get row count simply from result
     // But we can just assume it succeeded if it didn't throw.

@@ -25,6 +25,21 @@ export function ClockIcon(props: IconProps) {
 export function PeopleIcon(props: IconProps) {
   return <Base {...props}><circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.5"/><circle cx="17" cy="9.5" r="2" stroke="currentColor" strokeWidth="1.5"/><path d="M3.5 19c.3-4 2.1-6 5.5-6s5.2 2 5.5 6M14 14.5c3.8-.4 5.7 1.1 6 4.5" stroke="currentColor" strokeWidth="1.5"/></Base>;
 }
+export function UserIcon(props: IconProps) {
+  return <Base {...props}><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" strokeWidth="1.5"/><path d="M5.5 19.5v-1a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v1" stroke="currentColor" strokeWidth="1.5"/></Base>;
+}
+export function TargetIcon(props: IconProps) {
+  return <Base {...props}><circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/></Base>;
+}
+export function MapPinIcon(props: IconProps) {
+  return <Base {...props}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="1.5"/></Base>;
+}
+export function ActivityIcon(props: IconProps) {
+  return <Base {...props}><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></Base>;
+}
+export function LabelIcon(props: IconProps) {
+  return <Base {...props}><path d="M19 12l-5-5H4v10h10z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></Base>;
+}
 export function LayersIcon(props: IconProps) {
   return <Base {...props}><path d="m12 3 9 5-9 5-9-5 9-5Z" stroke="currentColor" strokeWidth="1.5"/><path d="m5 12 7 4 7-4M5 16l7 4 7-4" stroke="currentColor" strokeWidth="1.5"/></Base>;
 }

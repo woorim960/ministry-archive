@@ -1,5 +1,5 @@
-export function slugify(value: string) {
-  return value
+export function slugify(value: string | undefined | null) {
+  return String(value || "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9가-힣]+/g, "-")

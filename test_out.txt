@@ -1,0 +1,274 @@
+✔ AdminStudio has enter key handler for delete modal (2.868833ms)
+✔ AdminStudio validatePublish handles undefined title and summary safely (2.314542ms)
+✔ AdminStudio contains custom meta support (1.467417ms)
+✔ POST API has slug fallback logic to prevent empty slugs (2.136583ms)
+✔ DELETE API uses decodeURIComponent for slug decoding (0.667708ms)
+✔ DocumentReader supports category specific layout handling (4.49075ms)
+✔ DocumentReader supports customMeta fields (1.226958ms)
+✔ Icons are exported and used for meta fields (2.180833ms)
+✔ keeps independent unsaved drafts while switching documents (0.748334ms)
+✔ updates one working copy without overwriting another (0.695959ms)
+✔ keeps the sidebar order stable when users switch or edit documents (0.067083ms)
+✔ shows every saved document while marking its working copy (0.109625ms)
+✔ moves a document only after an explicit successful save (0.0795ms)
+✔ replaces the temporary copy after the first server save without duplicates (0.076458ms)
+✔ slugify correctly formats normal text (0.834ms)
+✔ slugify handles strings containing only non-alphanumeric or non-hangul characters (0.0585ms)
+✔ slugify handles undefined or null gracefully without throwing an error (0.057375ms)
+✔ renders development preview metadata (83.410208ms)
+✔ renders planning markdown v2 blocks and inline styles (13.48525ms)
+✔ renders the Relay Folio brand system and metadata (5.497208ms)
+✖ ships the focused editor controls and inline help (3.976709ms)
+✔ makes the writing entry easy to discover (4.409917ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 21
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 200.672791
+
+✖ failing tests:
+
+test at tests/rendered-html.test.mjs:90:1
+✖ ships the focused editor controls and inline help (3.976709ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /전체 기획서/. Input:
+  
+  '"use client";\n' +
+    '\n' +
+    'import Link from "next/link";\n' +
+    'import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";\n' +
+    'import { useRouter } from "next/navigation";\n' +
+    'import { useEditor, EditorContent } from "@tiptap/react";\n' +
+    'import { getTiptapExtensions } from "@/lib/tiptap-extensions";\n' +
+    'import { BrandMark } from "@/components/BrandMark";\n' +
+    'import { ArrowIcon, FocusIcon, ImageIcon, PanelLeftIcon, PanelRightIcon, PanelLeftOpenIcon, PanelRightOpenIcon, PlusIcon, ToggleIcon, VideoIcon } from "@/components/Icons";\n' +
+    'import { DocumentReader } from "@/components/DocumentReader";\n' +
+    'import { Callout } from "@/components/extensions/Callout";\n' +
+    'import { Toggle } from "@/components/extensions/Toggle";\n' +
+    'import { buildSidebarDocuments, createLocalClientKey, mergeSavedDocuments, removeWorkingDocument, serverClientKey, upsertWorkingDocument } from "@/lib/editor-workspace";\n' +
+    'import { insertMarkdownAtLine, moveMarkdownBlock, youtubeId } from "@/lib/markdown";\n' +
+    'import { slugify } from "@/lib/format";\n' +
+    'import type { ResourceSummary } from "@/types/content";\n' +
+    '\n' +
+    'type Draft = ResourceSummary & { isPublished: boolean; clientKey: string };\n' +
+    'type SavePhase = "ready" | "dirty" | "saving" | "saved" | "error";\n' +
+    'type PaletteKind = "text" | "background" | "note" | null;\n' +
+    '\n' +
+    '\n' +
+    '\n' +
+    'const LOCAL_DRAFT_KEY = "mapo-planning-studio-draft-v2";\n' +
+    'const WORKING_DRAFTS_KEY = "mapo-planning-studio-drafts-v3";\n' +
+    'const WORKSPACE_VIEW_KEY = "mapo-planning-studio-view-v1";\n' +
+    'const tones = [\n' +
+    '  { value: "red", label: "중요" }, { value: "blue", label: "안내" }, { value: "green", label: "팁" },\n' +
+    '  { value: "amber", label: "주의" }, { value: "violet", label: "아이디어" }, { value: "neutral", label: "메모" },\n' +
+    '] as const;\n' +
+    '\n' +
+    'const starterMarkdown = `## 기획 의도\n' +
+    '\n' +
+    '이 기획이 필요한 이유와 참가자가 기억하기 바라는 메시지를 적어주세요.\n' +
+    '\n' +
+    '## 준비\n' +
+    '\n' +
+    '- 준비물\n' +
+    '- 공간과 인원\n' +
+    '- 진행 전 확인할 내용\n' +
+    '\n' +
+    '## 진행 흐름\n' +
+    '\n' +
+    '1. 시작\n' +
+    '2. 핵심 활동\n' +
+    '3. 마무리와 나눔\n' +
+    '\n' +
+    ':::note[blue] 참고\n' +
+    '현장에서 꼭 기억할 내용을 적어주세요.\n' +
+    ':::\n' +
+    '`;\n' +
+    '\n' +
+    'function createEmptyDraft(clientKey = "local:initial"): Draft {\n' +
+    '  return {\n' +
+    '    clientKey, id: "", slug: "", title: "", summary: "", docType: "general", category: "", audience: "", duration: "",\n' +
+    '    participants: "", difficulty: "", location: "", date: "", coverUrl: "", tags: [], customMeta: [], markdown: "", isPublished: false,\n' +
+    '    updatedAt: new Date().toISOString(), readMinutes: 3, contentFormat: "markdown-v2",\n' +
+    '  };\n' +
+    '}\n' +
+    '\n' +
+    'export function AdminStudio({ userName, userEmail }: { userName: string; userEmail: string }) {\n' +
+    '  const router = useRouter();\n' +
+    '  const [draft, setDraft] = useState<Draft>(() => createEmptyDraft());\n' +
+    '  const [activeKey, setActiveKey] = useState("local:initial");\n' +
+    '  const [workingDrafts, setWorkingDrafts] = useState<Draft[]>(() => [createEmptyDraft()]);\n' +
+    '  const [saved, setSaved] = useState<Draft[]>([]);\n' +
+    '  const [tagInput, setTagInput] = useState("");\n' +
+    '  const [savePhase, setSavePhase] = useState<SavePhase>("ready");\n' +
+    '  const [savedAt, setSavedAt] = useState("");\n' +
+    '  const [notice, setNotice] = useState("빈 초안도 바로 저장할 수 있습니다.");\n' +
+    '  const [uploading, setUploading] = useState(false);\n' +
+    '  const [mobileTab, setMobileTab] = useState<"write" | "preview">("write");\n' +
+    '  const [leftPanelOpen, setLeftPanelOpen] = useState(true);\n' +
+    '  const [rightPanelOpen, setRightPanelOpen] = useState(true);\n' +
+    '  const [leftPanelHover, setLeftPanelHover] = useState(false);\n' +
+    '  const [rightPanelHover, setRightPanelHover] = useState(false);\n' +
+    '  const [previewWidth, setPreviewWidth] = useState<number | null>(null);\n' +
+    '  const [isResizingActive, setIsResizingActive] = useState(false);\n' +
+    '  const isResizing = useRef(false);\n' +
+    '\n' +
+    '  useEffect(() => {\n' +
+    '    const handlePointerMove = (e: PointerEvent) => {\n' +
+    '      if (!isResizing.current) return;\n' +
+    '      let newWidth = window.innerWidth - e.clientX;\n' +
+    '      const minWidth = 300;\n' +
+    '      const maxWidth = window.innerWidth - 300;\n' +
+    '      if (newWidth < minWidth) newWidth = minWidth;\n' +
+    '      if (newWidth > maxWidth) newWidth = maxWidth;\n' +
+    '      setPreviewWidth(newWidth);\n' +
+    '    };\n' +
+    '    const handlePointerUp = () => {\n' +
+    '      if (isResizing.current) {\n' +
+    '        isResizing.current = false;\n' +
+    '        setIsResizingActive(false);\n' +
+    '        document.body.style.cursor = "";\n' +
+    '        document.body.style.userSelect = "";\n' +
+    '      }\n' +
+    '    };\n' +
+    '    window.addEventListener("pointermove", handlePointerMove);\n' +
+    '    window.addEventListener("pointerup", handlePointerUp);\n' +
+    '    return () => {\n' +
+    '      window.removeEventListener("pointermove", handlePointerMove);\n' +
+    '      window.removeEventListener("pointerup", handlePointerUp);\n' +
+    '    };\n' +
+    '  }, []);\n' +
+    '\n' +
+    '  const startResizing = useCallback((e: React.PointerEvent) => {\n' +
+    '    isResizing.current = true;\n' +
+    '    setIsResizingActive(true);\n' +
+    '    document.body.style.cursor = "col-resize";\n' +
+    '    document.body.style.userSelect = "none";\n' +
+    '  }, []);\n' +
+    '\n' +
+    '  const isLeftVisible = leftPanelOpen || leftPanelHover;\n' +
+    '  const isRightVisible = rightPanelOpen || rightPanelHover;\n' +
+    '\n' +
+    '  const previewPanelStyle = useMemo(() => {\n' +
+    '    if (typeof window !== "undefined" && window.innerWidth <= 980) return undefined;\n' +
+    '    if (previewWidth === null) return undefined;\n' +
+    '    return { width: `${previewWidth}px`, flexBasis: `${previewWidth}px` };\n' +
+    '  }, [previewWidth]);\n' +
+    '\n' +
+    '  useEffect(() => {\n' +
+    '    const handleMouseMove = (e: MouseEvent) => {\n' +
+    '      if (isResizing.current) return;\n' +
+    '      if (!leftPanelOpen) {\n' +
+    '        if (e.clientX < 12) setLeftPanelHover(true);\n' +
+    '        else if (e.clientX > 250) setLeftPanelHover(false); // 230px panel + 20px buffer\n' +
+    '      }\n' +
+    '      if (!rightPanelOpen) {\n' +
+    '        if (window.innerWidth - e.clientX < 12) setRightPanelHover(true);\n' +
+    '        else if (window.innerWidth - e.clientX > (previewWidth ?? 500) + 20) setRightPanelHover(false);\n' +
+    '      }\n' +
+    '    };\n' +
+    '    window.addEventListener("mousemove", handleMouseMove);\n' +
+    '    return () => window.removeEventListener("mousemove", handleMouseMove);\n' +
+    '  }, [leftPanelOpen, rightPanelOpen, previewWidth]);\n' +
+    '\n' +
+    '  const [palette, setPalette] = useState<PaletteKind>(null);\n' +
+    '  const [youtubeOpen, setYoutubeOpen] = useState(false);\n' +
+    '  const [youtubeUrl, setYoutubeUrl] = useState("");\n' +
+    '  const [youtubeCaption, setYoutubeCaption] = useState("");\n' +
+    '  const [youtubeError, setYoutubeError] = useState("");\n' +
+    '  const [commandbarVisible, setCommandbarVisible] = useState(false);\n' +
+    '  const lastScrollY = useRef(0);\n' +
+    '  const lastInteractedPanel = useRef<"editor" | "preview">("editor");\n' +
+    '  const [selection, setSelection] = useState({ start: 0, end: 0 });\n' +
+    '  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});\n' +
+    '  const [workspaceHydrated, setWorkspaceHydrated] = useState(false);\n' +
+    '  const [mobileLibraryOpen, setMobileLibraryOpen] = useState(false);\n' +
+    '  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{ clientKey: string, slug?: string } | null>(null);\n' +
+    '\n' +
+    '  const textareaRef = useRef<HTMLDivElement>(null);\n' +
+    '  const editor = useEditor({\n' +
+    '    extensions: getTiptapExtensions({ placeholder: "Markdown으로 기획서를 작성하세요." }),\n' +
+    '    content: draft.markdown,\n' +
+    '    onUpdate: ({ editor }) => {\n' +
+    '      const nextMarkdown = (editor.storage as any).markdown.getMarkdown();\n' +
+    '      update("markdown", nextMarkdown);\n' +
+    '    },\n' +
+    '  });\n' +
+    '\n' +
+    '  useEffect(() => {\n' +
+    '    if (editor && draft.markdown !== (editor.storage as any).markdown.getMarkdown()) {\n' +
+    '      editor.commands.setContent(draft.markdown || "");\n' +
+    '    }\n' +
+    '  }, [draft.markdown, editor]);\n' +
+    '  const titleRef = useRef<HTMLInputElement>(null);\n' +
+    '  const summaryRef = useRef<HTMLInputElement>(null);\n' +
+    '  const editorPanelRef = useRef<HTMLDivElement>(null);\n' +
+    '  const previewScrollRef = useRef<HTMLDivElement>(null);\n' +
+    '  const toolbarViewportRef = useRef<HTMLDivElement>(null);\n' +
+    '  const toolbarWheelRef = useRef<((e: WheelEvent) => void) | null>(null);\n' +
+    '  const toolbarCallbackRef = (node: HTMLDivElement | null) => {\n' +
+    '    // Remove from previous\n' +
+    '    if (toolbarViewportRef.current && toolbarWheelRef.current) {\n' +
+    '      toolbarViewportRef.current.removeEventListener("wheel", toolbarWheelRef.current);\n' +
+    '    }\n' +
+    '    (toolbarViewportRef as React.MutableRefObject<HTMLDivElement | null>).current = node;\n' +
+    '    if (node) {\n' +
+    '      function handleWheel(event: WheelEvent) {\n' +
+    '        if (!node || node.scrollWidth <= node.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;\n' +
+    '        event.preventDefault();\n' +
+    '        node.scrollLeft += event.deltaY;\n' +
+    '      }\n' +
+    '      toolbarWheelRef.current = handleWheel;\n' +
+    '      node.addEventListener("wheel", handleWheel, { passive: false });\n' +
+    '    }\n' +
+    '  };\n' +
+    '  const saveInFlight = useRef(false);\n' +
+    '  const activeKeyRef = useRef(draft.clientKey);\n' +
+    '  const toolbarDrag = useRef({ active: false, startX: 0, startScrollLeft: 0, didDrag: false });\n' +
+    '  const previousWorkspaceView = useRef({ left: true, right: true });\n' +
+    '  const [workspaceViewLoaded, setWorkspaceViewLoaded] = useState(false);\n' +
+    '  const previewDoc = useMemo<ResourceSummary>(() => ({\n' +
+    '    ...draft,\n' +
+    '    title: draft.title || "제목 없는 기획서",\n' +
+    '    summary: draft.summary || "한 줄 소개를 입력하면 공개 화면과 같은 위치에 표시됩니다.",\n' +
+    '    markdown: draft.markdown || "",\n' +
+    '    tags: normalizeTags([...draft.tags, tagInput]),\n' +
+    '  }), [draft, tagInput]);\n' +
+    '\n' +
+    '\n' +
+    '  useEffect(() => {\n' +
+    '    loadSaved();\n' +
+    '    const recoveryTimer = window.setTimeout(() => {\n' +
+    '      try {\n' +
+    '        const stored = window.localStorage.getItem(WORKING_DRAFTS_KEY);\n' +
+    '        const parsed = stored ? JSON.parse(stored) as { drafts?: Draft[]; activeKey?: string } : null;\n' +
+    '        const recovered = Array.isArray(parsed?.drafts) ? parsed.drafts.map(normalizeDraft) : [];\n' +
+    '        if (recovered.length) {\n' +
+    '          const active = recovered.find((item) => item.clientKey === parsed?.activeKey) || recovered[0];\n' +
+    '          setWorkingDrafts(recovered);\n' +
+    '          activateDraft(active, "dirty");\n' +
+    '          setNotice(recovered.length > 1 ? `작성 중이던 초안 ${recovered.length}개를 복구했습니다.` : "작성 중이던 초안을 복구했습니다.");\n' +
+    '        } else {\n' +
+    '          const legacy = window.localStorage.getItem(LOCAL_DRAFT_KEY);\n' +
+    '          if (legacy) {\n' +
+    '            const migrated = normalizeDraft({ ...JSON.parse(legacy), clientKey: createLocalClientKey() });\n' +
+    '            setWorkingDrafts([migrated]);\n' +
+    '            activateDraft(migrated, "dirty");\n' +
+    '            setNotice("이전에 작성하던 초안을 안전하게 옮겨 복구했습니다.");\n' +
+    '            window.localStorage.removeItem(LOCAL_DRAFT_KEY);\n' +
+    '          }\n' +
+    '        }\n' +
+    '      } catc'... 43122 more characters
+  
+      at TestContext.<anonymous> (file:///Users/woorim/Desktop/development/js/ministry-archive/tests/rendered-html.test.mjs:104:10)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '"use client";\n\nimport Link from "next/link";\nimport { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";\nimport { useRouter } from "next/navigation";\nimport { useEditor, EditorContent } from "@tiptap/react";\nimport { getTiptapExtensions } from "@/lib/tiptap-extensions";\nimport { BrandMark } from "@/components/BrandMark";\nimport { ArrowIcon, FocusIcon, ImageIcon, PanelLeftIcon, PanelRightIcon, PanelLeftOpenIcon, PanelRightOpenIcon, PlusIcon, ToggleIcon, VideoIcon } from "@/components/Icons";\nimport { DocumentReader } from "@/components/DocumentReader";\nimport { Callout } from "@/components/extensions/Callout";\nimport { Toggle } from "@/components/extensions/Toggle";\nimport { buildSidebarDocuments, createLocalClientKey, mergeSavedDocuments, removeWorkingDocument, serverClientKey, upsertWorkingDocument } from "@/lib/editor-workspace";\nimport { insertMarkdownAtLine, moveMarkdownBlock, youtubeId } from "@/lib/markdown";\nimport { slugify } from "@/lib/format";\nimport type { ResourceSummary } from "@/types/content";\n\ntype Draft = ResourceSummary & { isPublished: boolean; clientKey: string };\ntype SavePhase = "ready" | "dirty" | "saving" | "saved" | "error";\ntype PaletteKind = "text" | "background" | "note" | null;\n\n\n\nconst LOCAL_DRAFT_KEY = "mapo-planning-studio-draft-v2";\nconst WORKING_DRAFTS_KEY = "mapo-planning-studio-drafts-v3";\nconst WORKSPACE_VIEW_KEY = "mapo-planning-studio-view-v1";\nconst tones = [\n  { value: "red", label: "중요" }, { value: "blue", label: "안내" }, { value: "green", label: "팁" },\n  { value: "amber", label: "주의" }, { value: "violet", label: "아이디어" }, { value: "neutral", label: "메모" },\n] as const;\n\nconst starterMarkdown = `## 기획 의도\n\n이 기획이 필요한 이유와 참가자가 기억하기 바라는 메시지를 적어주세요.\n\n## 준비\n\n- 준비물\n- 공간과 인원\n- 진행 전 확인할 내용\n\n## 진행 흐름\n\n1. 시작\n2. 핵심 활동\n3. 마무리와 나눔\n\n:::note[blue] 참고\n현장에서 꼭 기억할 내용을 적어주세요.\n:::\n`;\n\nfunction createEmptyDraft(clientKey = "local:initial"): Draft {\n  return {\n    clientKey, id: "", slug: "", title: "", summary: "", docType: "general", category: "", audience: "", duration: "",\n    participants: "", difficulty: "", location: "", date: "", coverUrl: "", tags: [], customMeta: [], markdown: "", isPublished: false,\n    updatedAt: new Date().toISOString(), readMinutes: 3, contentFormat: "markdown-v2",\n  };\n}\n\nexport function AdminStudio({ userName, userEmail }: { userName: string; userEmail: string }) {\n  const router = useRouter();\n  const [draft, setDraft] = useState<Draft>(() => createEmptyDraft());\n  const [activeKey, setActiveKey] = useState("local:initial");\n  const [workingDrafts, setWorkingDrafts] = useState<Draft[]>(() => [createEmptyDraft()]);\n  const [saved, setSaved] = useState<Draft[]>([]);\n  const [tagInput, setTagInput] = useState("");\n  const [savePhase, setSavePhase] = useState<SavePhase>("ready");\n  const [savedAt, setSavedAt] = useState("");\n  const [notice, setNotice] = useState("빈 초안도 바로 저장할 수 있습니다.");\n  const [uploading, setUploading] = useState(false);\n  const [mobileTab, setMobileTab] = useState<"write" | "preview">("write");\n  const [leftPanelOpen, setLeftPanelOpen] = useState(true);\n  const [rightPanelOpen, setRightPanelOpen] = useState(true);\n  const [leftPanelHover, setLeftPanelHover] = useState(false);\n  const [rightPanelHover, setRightPanelHover] = useState(false);\n  const [previewWidth, setPreviewWidth] = useState<number | null>(null);\n  const [isResizingActive, setIsResizingActive] = useState(false);\n  const isResizing = useRef(false);\n\n  useEffect(() => {\n    const handlePointerMove = (e: PointerEvent) => {\n      if (!isResizing.current) return;\n      let newWidth = window.innerWidth - e.clientX;\n      const minWidth = 300;\n      const maxWidth = window.innerWidth - 300;\n      if (newWidth < minWidth) newWidth = minWidth;\n      if (newWidth > maxWidth) newWidth = maxWidth;\n      setPreviewWidth(newWidth);\n    };\n    const handlePointerUp = () => {\n      if (isResizing.current) {\n        isResizing.current = false;\n        setIsResizingActive(false);\n        document.body.style.cursor = "";\n        document.body.style.userSelect = "";\n      }\n    };\n    window.addEventListener("pointermove", handlePointerMove);\n    window.addEventListener("pointerup", handlePointerUp);\n    return () => {\n      window.removeEventListener("pointermove", handlePointerMove);\n      window.removeEventListener("pointerup", handlePointerUp);\n    };\n  }, []);\n\n  const startResizing = useCallback((e: React.PointerEvent) => {\n    isResizing.current = true;\n    setIsResizingActive(true);\n    document.body.style.cursor = "col-resize";\n    document.body.style.userSelect = "none";\n  }, []);\n\n  const isLeftVisible = leftPanelOpen || leftPanelHover;\n  const isRightVisible = rightPanelOpen || rightPanelHover;\n\n  const previewPanelStyle = useMemo(() => {\n    if (typeof window !== "undefined" && window.innerWidth <= 980) return undefined;\n    if (previewWidth === null) return undefined;\n    return { width: `${previewWidth}px`, flexBasis: `${previewWidth}px` };\n  }, [previewWidth]);\n\n  useEffect(() => {\n    const handleMouseMove = (e: MouseEvent) => {\n      if (isResizing.current) return;\n      if (!leftPanelOpen) {\n        if (e.clientX < 12) setLeftPanelHover(true);\n        else if (e.clientX > 250) setLeftPanelHover(false); // 230px panel + 20px buffer\n      }\n      if (!rightPanelOpen) {\n        if (window.innerWidth - e.clientX < 12) setRightPanelHover(true);\n        else if (window.innerWidth - e.clientX > (previewWidth ?? 500) + 20) setRightPanelHover(false);\n      }\n    };\n    window.addEventListener("mousemove", handleMouseMove);\n    return () => window.removeEventListener("mousemove", handleMouseMove);\n  }, [leftPanelOpen, rightPanelOpen, previewWidth]);\n\n  const [palette, setPalette] = useState<PaletteKind>(null);\n  const [youtubeOpen, setYoutubeOpen] = useState(false);\n  const [youtubeUrl, setYoutubeUrl] = useState("");\n  const [youtubeCaption, setYoutubeCaption] = useState("");\n  const [youtubeError, setYoutubeError] = useState("");\n  const [commandbarVisible, setCommandbarVisible] = useState(false);\n  const lastScrollY = useRef(0);\n  const lastInteractedPanel = useRef<"editor" | "preview">("editor");\n  const [selection, setSelection] = useState({ start: 0, end: 0 });\n  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});\n  const [workspaceHydrated, setWorkspaceHydrated] = useState(false);\n  const [mobileLibraryOpen, setMobileLibraryOpen] = useState(false);\n  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{ clientKey: string, slug?: string } | null>(null);\n\n  const textareaRef = useRef<HTMLDivElement>(null);\n  const editor = useEditor({\n    extensions: getTiptapExtensions({ placeholder: "Markdown으로 기획서를 작성하세요." }),\n    content: draft.markdown,\n    onUpdate: ({ editor }) => {\n      const nextMarkdown = (editor.storage as any).markdown.getMarkdown();\n      update("markdown", nextMarkdown);\n    },\n  });\n\n  useEffect(() => {\n    if (editor && draft.markdown !== (editor.storage as any).markdown.getMarkdown()) {\n      editor.commands.setContent(draft.markdown || "");\n    }\n  }, [draft.markdown, editor]);\n  const titleRef = useRef<HTMLInputElement>(null);\n  const summaryRef = useRef<HTMLInputElement>(null);\n  const editorPanelRef = useRef<HTMLDivElement>(null);\n  const previewScrollRef = useRef<HTMLDivElement>(null);\n  const toolbarViewportRef = useRef<HTMLDivElement>(null);\n  const toolbarWheelRef = useRef<((e: WheelEvent) => void) | null>(null);\n  const toolbarCallbackRef = (node: HTMLDivElement | null) => {\n    // Remove from previous\n    if (toolbarViewportRef.current && toolbarWheelRef.current) {\n      toolbarViewportRef.current.removeEventListener("wheel", toolbarWheelRef.current);\n    }\n    (toolbarViewportRef as React.MutableRefObject<HTMLDivElement | null>).current = node;\n    if (node) {\n      function handleWheel(event: WheelEvent) {\n        if (!node || node.scrollWidth <= node.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;\n        event.preventDefault();\n        node.scrollLeft += event.deltaY;\n      }\n      toolbarWheelRef.current = handleWheel;\n      node.addEventListener("wheel", handleWheel, { passive: false });\n    }\n  };\n  const saveInFlight = useRef(false);\n  const activeKeyRef = useRef(draft.clientKey);\n  const toolbarDrag = useRef({ active: false, startX: 0, startScrollLeft: 0, didDrag: false });\n  const previousWorkspaceView = useRef({ left: true, right: true });\n  const [workspaceViewLoaded, setWorkspaceViewLoaded] = useState(false);\n  const previewDoc = useMemo<ResourceSummary>(() => ({\n    ...draft,\n    title: draft.title || "제목 없는 기획서",\n    summary: draft.summary || "한 줄 소개를 입력하면 공개 화면과 같은 위치에 표시됩니다.",\n    markdown: draft.markdown || "",\n    tags: normalizeTags([...draft.tags, tagInput]),\n  }), [draft, tagInput]);\n\n\n  useEffect(() => {\n    loadSaved();\n    const recoveryTimer = window.setTimeout(() => {\n      try {\n        const stored = window.localStorage.getItem(WORKING_DRAFTS_KEY);\n        const parsed = stored ? JSON.parse(stored) as { drafts?: Draft[]; activeKey?: string } : null;\n        const recovered = Array.isArray(parsed?.drafts) ? parsed.drafts.map(normalizeDraft) : [];\n        if (recovered.length) {\n          const active = recovered.find((item) => item.clientKey === parsed?.activeKey) || recovered[0];\n          setWorkingDrafts(recovered);\n          activateDraft(active, "dirty");\n          setNotice(recovered.length > 1 ? `작성 중이던 초안 ${recovered.length}개를 복구했습니다.` : "작성 중이던 초안을 복구했습니다.");\n        } else {\n          const legacy = window.localStorage.getItem(LOCAL_DRAFT_KEY);\n          if (legacy) {\n            const migrated = normalizeDraft({ ...JSON.parse(legacy), clientKey: createLocalClientKey() });\n            setWorkingDrafts([migrated]);\n            activateDraft(migrated, "dirty");\n            setNotice("이전에 작성하던 초안을 안전하게 옮겨 복구했습니다.");\n            window.localStorage.removeItem(LOCAL_DRAFT_KEY);\n          }\n        }\n      } catc'... 43122 more characters,
+    expected: /전체 기획서/,
+    operator: 'match',
+    diff: 'simple'
+  }

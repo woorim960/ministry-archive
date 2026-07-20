@@ -2,7 +2,7 @@ import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import React, { useState, useEffect } from 'react';
 
-const CalloutComponent = ({ node, updateAttributes }: any) => {
+const CalloutComponent = ({ node, updateAttributes, editor }: any) => {
   const tone = node.attrs.tone || "blue";
   const [title, setTitle] = useState(node.attrs.title || "");
 
@@ -44,17 +44,21 @@ const CalloutComponent = ({ node, updateAttributes }: any) => {
   return (
     <NodeViewWrapper className={`document-callout tone-${tone} editor-callout`}>
       <span>참고</span>
-      <input
-        className="callout-title-input"
-        type="text"
-        placeholder="참고 제목"
-        value={title}
-        onChange={handleChange}
-        onCompositionStart={handleCompositionStart}
-        onCompositionEnd={handleCompositionEnd}
-        onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
-      />
+      {editor?.isEditable ? (
+        <input
+          className="callout-title-input"
+          type="text"
+          placeholder="참고 제목"
+          value={title}
+          onChange={handleChange}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+        />
+      ) : (
+        <h3>{title || "참고"}</h3>
+      )}
       <NodeViewContent className="callout-content" />
     </NodeViewWrapper>
   );

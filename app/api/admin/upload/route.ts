@@ -18,7 +18,13 @@ export async function POST(request: Request) {
     const alt = String(data.get("alt") ?? "").slice(0, 300);
     if (!(file instanceof File)) return Response.json({ error: "이미지를 선택해 주세요." }, { status: 400 });
     if (!allowedTypes.has(file.type)) return Response.json({ error: "JPG, PNG, WEBP 이미지만 업로드할 수 있습니다." }, { status: 400 });
-    if (file.size > 8 * 1024 * 1024) return Response.json({ error: "이미지는 8MB 이하여야 합니다." }, { status: 400 });
+    
+    // 로컬호스트 환경에서는 800MB 허용, 프로덕션에서는 8MB 허용
+    const isLocal = request.url.includes("localhost") || request.url.includes("127.0.0.1");
+    const maxSizeBytes = isLocal ? 800 * 1024 * 1024 : 8 * 1024 * 1024;
+    const maxSizeStr = isLocal ? "800MB" : "8MB";
+    if (file.size > maxSizeBytes) return Response.json({ error: `이미지 용량이 너무 큽니다. (최대 ${maxSizeStr})` }, { status: 400 });
+    
     const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
     const detected = detectImage(bytes);
     if (!detected || detected.mime !== file.type) return Response.json({ error: "파일 내용과 이미지 형식이 일치하지 않습니다." }, { status: 400 });

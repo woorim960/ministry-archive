@@ -4,8 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowIcon, ClockIcon, PeopleIcon } from "@/components/Icons";
-import { headingId, parseMarkdown } from "@/lib/markdown";
+import { ArrowIcon, ClockIcon, PeopleIcon, TargetIcon, ActivityIcon, MapPinIcon, LabelIcon } from "@/components/Icons";
+import { headingId } from "@/lib/markdown";
 import type { ResourceSummary } from "@/types/content";
 import { MarkdownDocument } from "@/components/MarkdownDocument";
 
@@ -19,7 +19,10 @@ export function DocumentReader({ document, preview = false, related = [], isAdmi
   const [copied, setCopied] = useState(false);
   const [activeId, setActiveId] = useState("");
   const router = useRouter();
-  const headings = useMemo(() => parseMarkdown(document.markdown || "").filter((block) => block.type === "heading" && block.level === 2), [document.markdown]);
+  const headings = useMemo(() => {
+    const matches = [...(document.markdown || "").matchAll(/^##\s+(.+)$/gm)];
+    return matches.map((m) => ({ text: m[1].trim() }));
+  }, [document.markdown]);
 
   useEffect(() => {
     if (preview) return;
@@ -75,23 +78,23 @@ export function DocumentReader({ document, preview = false, related = [], isAdmi
         <dl className="document-facts">
           {(!document.docType || document.docType === "proposal") && (
             <>
-              {document.audience && <div><dt>대상</dt><dd>{document.audience}</dd></div>}
+              {document.audience && <div><dt><TargetIcon size={17}/>대상</dt><dd>{document.audience}</dd></div>}
               {document.duration && <div><dt><ClockIcon size={17}/>진행 시간</dt><dd>{document.duration}</dd></div>}
               {document.participants && <div><dt><PeopleIcon size={17}/>권장 인원</dt><dd>{document.participants}</dd></div>}
-              {document.difficulty && <div><dt>난이도</dt><dd>{document.difficulty}</dd></div>}
+              {document.difficulty && <div><dt><ActivityIcon size={17}/>난이도</dt><dd>{document.difficulty}</dd></div>}
             </>
           )}
           {document.docType === "meeting" && (
             <>
               {document.date && <div><dt><ClockIcon size={17}/>일시</dt><dd>{document.date}</dd></div>}
-              {document.location && <div><dt>장소</dt><dd>{document.location}</dd></div>}
+              {document.location && <div><dt><MapPinIcon size={17}/>장소</dt><dd>{document.location}</dd></div>}
               {document.participants && <div><dt><PeopleIcon size={17}/>참석자</dt><dd>{document.participants}</dd></div>}
             </>
           )}
           {document.customMeta?.map((meta, i) => (
-            <div key={i}><dt>{meta.label}</dt><dd>{meta.value}</dd></div>
+            <div key={i}><dt><LabelIcon size={17}/>{meta.label}</dt><dd>{meta.value}</dd></div>
           ))}
-          <div><dt>읽는 시간</dt><dd>약 {document.readMinutes || 3}분</dd></div>
+          <div><dt><ClockIcon size={17}/>읽는 시간</dt><dd>약 {document.readMinutes || 3}분</dd></div>
         </dl>
       </header>
 
@@ -105,7 +108,7 @@ export function DocumentReader({ document, preview = false, related = [], isAdmi
           })}</nav></details>
         </aside>}
         <div className="document-content">
-          <MarkdownDocument markdown={document.markdown || ""} editable={preview}/>
+          <MarkdownDocument markdown={document.markdown || ""} editable={false}/>
           {!preview && <footer className="document-end"><div><span>마지막 수정</span><time dateTime={document.updatedAt}>{formatDate(document.updatedAt)}</time></div><div style={{ display: 'flex', alignItems: 'center' }}>{isAdmin && !document.isSample && <button type="button" onClick={handleDelete} style={{ color: 'var(--red)', background: 'transparent', border: 'none', marginRight: '16px', fontWeight: 'bold' }}>이 기록 삭제하기</button>}<button type="button" onClick={copyLink}>{copied ? "링크를 복사했어요" : "링크 복사"}</button></div></footer>}
         </div>
       </div>

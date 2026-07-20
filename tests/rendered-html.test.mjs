@@ -101,11 +101,11 @@ test("ships the focused editor controls and inline help", async () => {
   assert.match(source, /className="panel-header"/);
   assert.match(source, /toolbar-groups-viewport/);
   assert.match(source, /newWorkingDrafts\.map/);
-  assert.match(source, /전체 기획서/);
+  assert.match(source, /전체 글/);
   assert.doesNotMatch(source, /className="new-resource"/);
   assert.match(styles, /studio-workspace\.left-collapsed\.right-collapsed/);
   assert.match(styles, /\.youtube-popover/);
-  assert.match(styles, /\.editor-panel\{min-width:0;max-width:100%;overflow-x:hidden;overflow-y:auto\}/);
+  assert.match(styles, /\.editor-panel\{flex:1;min-width:0;max-width:1120px/);
   assert.match(styles, /\.toolbar-groups-viewport\{display:block!important;/);
 });
 
