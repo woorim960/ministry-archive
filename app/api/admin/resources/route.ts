@@ -33,6 +33,8 @@ export async function POST(request: Request) {
     if (markdown.length > 250_000) return Response.json({ error: "본문이 250KB를 넘었습니다. 이미지는 파일로 업로드해 주세요." }, { status: 413 });
     if (isPublished && /!\[\s*\]\(/.test(markdown)) return Response.json({ error: "공개하기 전에 모든 이미지에 설명을 입력해 주세요." }, { status: 400 });
     const tags = normalizeTags(body.tags);
+    const docType = String(body.docType ?? "general");
+    const eyebrow = docType === "proposal" ? "기획서" : docType === "meeting" ? "회의록" : "일반 글";
     const db = await getDb();
     const [slugOwner] = await db.select().from(resources).where(eq(resources.slug, slug)).limit(1);
     if (slugOwner && slugOwner.id !== requestedId && !(slugOwner.id === "" && requestedId === "")) return Response.json({ error: "같은 주소를 사용하는 기획서가 있습니다. 추가 정보에서 문서 주소를 바꿔 주세요." }, { status: 409 });
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
     const existing = requestedExisting || (slugOwner?.id === "" && requestedId === "" ? slugOwner : undefined);
     const now = new Date().toISOString();
     const values = {
-      slug, title, summary,
+      slug, title, summary, eyebrow,
       category: String(body.category ?? "기독교 콘텐츠").slice(0, 50),
       audience: String(body.audience ?? "").slice(0, 50),
       duration: String(body.duration ?? "").slice(0, 50),
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
     if (existing) {
       await db.update(resources).set({ ...values, id, version: existing.version + 1 }).where(eq(resources.id, existing.id));
     } else {
-      await db.insert(resources).values({ id, ...values, eyebrow: "기획서", season: "상시", blocksJson: "[]", authorEmail: auth.user.email, createdAt: now, version: 1 });
+      await db.insert(resources).values({ id, ...values, season: "상시", blocksJson: "[]", authorEmail: auth.user.email, createdAt: now, version: 1 });
     }
     const [saved] = await db.select().from(resources).where(eq(resources.id, id)).limit(1);
     return Response.json({ resource: toResource(saved) }, { status: existing ? 200 : 201 });
@@ -70,7 +72,8 @@ export async function POST(request: Request) {
 }
 
 function toResource(row: typeof resources.$inferSelect) {
-  return { ...row, markdown: row.contentFormat === "markdown-v1" ? upgradeMarkdownV1(row.bodyMarkdown) : row.bodyMarkdown, tags: safeTags(row.tagsJson), bodyMarkdown: undefined, tagsJson: undefined, blocksJson: undefined };
+  const docType = row.eyebrow === "회의록" ? "meeting" : row.eyebrow === "기획서" ? "proposal" : "general";
+  return { ...row, docType, markdown: row.contentFormat === "markdown-v1" ? upgradeMarkdownV1(row.bodyMarkdown) : row.bodyMarkdown, tags: safeTags(row.tagsJson), bodyMarkdown: undefined, tagsJson: undefined, blocksJson: undefined };
 }
 
 function safeTags(value: string): string[] {
