@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Heading from "@tiptap/extension-heading";
+import { Heading } from "@tiptap/extension-heading";
 import ImageExtension from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Markdown } from "tiptap-markdown";
@@ -21,6 +21,26 @@ import type { ResourceSummary } from "@/types/content";
 type Draft = ResourceSummary & { isPublished: boolean; clientKey: string };
 type SavePhase = "ready" | "dirty" | "saving" | "saved" | "error";
 type PaletteKind = "text" | "background" | "note" | null;
+
+const CustomHeading = Heading.extend({
+  addKeyboardShortcuts() {
+    return {
+      ...this.parent?.(),
+      Enter: ({ editor }) => {
+        const { state } = editor;
+        const { selection } = state;
+        const { $from, empty } = selection;
+        if (!empty || $from.parent.type.name !== "heading") return false;
+        
+        if ($from.parent.content.size > 0 && $from.parentOffset === $from.parent.content.size) {
+          const pos = $from.after();
+          return editor.chain().insertContentAt(pos, { type: "paragraph" }).focus(pos + 1).run();
+        }
+        return false;
+      },
+    };
+  },
+});
 
 const LOCAL_DRAFT_KEY = "mapo-planning-studio-draft-v2";
 const WORKING_DRAFTS_KEY = "mapo-planning-studio-drafts-v3";
@@ -148,26 +168,6 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [workspaceHydrated, setWorkspaceHydrated] = useState(false);
   const [mobileLibraryOpen, setMobileLibraryOpen] = useState(false);
-  
-  const CustomHeading = useMemo(() => Heading.extend({
-    addKeyboardShortcuts() {
-      return {
-        ...this.parent?.(),
-        Enter: ({ editor }) => {
-          const { state } = editor;
-          const { selection } = state;
-          const { $from, empty } = selection;
-          if (!empty || $from.parent.type.name !== "heading") return false;
-          
-          if ($from.parent.content.size > 0 && $from.parentOffset === $from.parent.content.size) {
-            const pos = $from.after();
-            return editor.chain().insertContentAt(pos, { type: "paragraph" }).focus(pos + 1).run();
-          }
-          return false;
-        },
-      };
-    },
-  }), []);
 
   const textareaRef = useRef<HTMLDivElement>(null);
   const editor = useEditor({
