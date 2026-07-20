@@ -821,7 +821,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
             <button type="button" className="has-tip focus-mode-control" data-help={focusMode ? "클릭하면 미리보기와 목록 패널을 엽니다." : "클릭하면 양쪽 패널을 닫고 편집에 집중합니다."} aria-label={focusMode ? "집중 모드 종료" : "집중 모드 시작"} aria-pressed={focusMode} onClick={toggleFocusMode}><FocusIcon size={17}/><span>{focusMode ? "미리보기 켜기" : "미리보기 중.."}</span></button>
           </div>
           <div className="mobile-editor-tabs"><button className={mobileTab === "write" ? "active" : ""} onClick={() => setMobileTab("write")}>작성</button><button className={mobileTab === "preview" ? "active" : ""} onClick={() => setMobileTab("preview")}>미리보기</button></div>
-          <div className="studio-actions"><button type="button" onClick={() => void save("save")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "저장 및 반영" : "저장"}</button><button className="publish-button" type="button" onClick={() => void save("publish")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "공개됨" : "공개하기"} <ArrowIcon size={17}/></button></div>
+          <div className="studio-actions"><button type="button" className="has-tip-top" data-help="자동 저장은 현재 기기(브라우저)에만 임시 보관됩니다.&#10;다른 PC나 기기에서도 이어서 작업하려면 [저장]을 눌러 서버에 동기화해 주세요." onClick={() => void save("save")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "저장 및 반영" : "저장"}</button><button className="publish-button" type="button" onClick={() => void save("publish")} disabled={uploading || savePhase === "saving"}>{draft.isPublished ? "공개됨" : "공개하기"} <ArrowIcon size={17}/></button></div>
         </div>
       </div>
 
