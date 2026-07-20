@@ -707,7 +707,9 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
               <button type="button" className={`document-row working ${draft.clientKey === item.clientKey ? "selected" : ""}`} onClick={() => openWorking(item)}>
                 <small><i/>저장 안 됨</small><strong>{item.title || "제목 없는 글"}</strong><span>{item.updatedAt?.slice(0, 10)}</span>
               </button>
-              <span role="button" onClick={() => deleteTargetDraft(item.clientKey)} style={{ position: 'absolute', top: '16px', right: '12px', color: 'var(--red)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', zIndex: 10, padding: '4px' }}>삭제</span>
+              {draft.clientKey !== item.clientKey && (
+                <span role="button" onClick={() => deleteTargetDraft(item.clientKey)} style={{ position: 'absolute', top: '16px', right: '12px', color: 'var(--red)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', zIndex: 10, padding: '4px' }}>삭제</span>
+              )}
             </span>
           ))}
           
@@ -717,7 +719,9 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
               <button type="button" className={`document-row ${hasUnsavedChanges ? "working" : ""} ${draft.clientKey === item.clientKey ? "selected" : ""}`} onClick={() => openSaved(item)}>
                 <small>{hasUnsavedChanges ? <><i/>수정 중</> : savedDocument.isPublished ? "공개" : "초안"}</small><strong>{item.title || "제목 없는 글"}</strong><span>{savedDocument.updatedAt?.slice(0, 10)}</span>
               </button>
-              <span role="button" onClick={() => deleteTargetDraft(item.clientKey, item.slug)} style={{ position: 'absolute', top: '16px', right: '12px', color: 'var(--red)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', zIndex: 10, padding: '4px' }}>삭제</span>
+              {draft.clientKey !== item.clientKey && (
+                <span role="button" onClick={() => deleteTargetDraft(item.clientKey, item.slug)} style={{ position: 'absolute', top: '16px', right: '12px', color: 'var(--red)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', zIndex: 10, padding: '4px' }}>삭제</span>
+              )}
             </span>
           ))}
 
