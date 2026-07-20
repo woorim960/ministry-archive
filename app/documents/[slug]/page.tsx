@@ -18,8 +18,13 @@ async function getResource(slug: string): Promise<ResourceSummary | null> {
     const db = await getDb();
     const [row] = await db.select().from(resources).where(eq(resources.slug, slug)).limit(1);
     if (!row?.isPublished) return null;
+    const docType = row.eyebrow === "회의록" ? "meeting" : row.eyebrow === "기획서" ? "proposal" : "general";
+    let customMeta = [];
+    try { customMeta = JSON.parse(row.blocksJson || "[]"); } catch {}
+    
     return {
       id: row.id, slug: row.slug, title: row.title, summary: row.summary, category: row.category,
+      docType, customMeta,
       audience: row.audience, duration: row.duration, participants: row.participants,
       difficulty: row.difficulty, coverUrl: row.coverUrl, tags: safeTags(row.tagsJson),
       markdown: row.contentFormat === "markdown-v1" ? upgradeMarkdownV1(row.bodyMarkdown) : row.bodyMarkdown,
