@@ -31,15 +31,17 @@ async function getResource(slug: string): Promise<ResourceSummary | null> {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const resource = await getResource(slug);
+  const decodedSlug = decodeURIComponent(slug);
+  const resource = await getResource(decodedSlug);
   return resource ? { title: resource.title, description: resource.summary } : { title: "기획서를 찾을 수 없습니다" };
 }
 
 export default async function DocumentPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const resource = await getResource(slug);
+  const decodedSlug = decodeURIComponent(slug);
+  const resource = await getResource(decodedSlug);
   if (!resource) notFound();
-  const related = archiveSeed.filter((item) => item.slug !== slug).slice(0, 2);
+  const related = archiveSeed.filter((item) => item.slug !== decodedSlug).slice(0, 2);
   const state = await getAdminState();
   return <main id="main-content"><DocumentReader document={resource} related={related} isAdmin={state.isAdmin} /></main>;
 }
