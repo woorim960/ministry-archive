@@ -73,12 +73,24 @@ export function DocumentReader({ document, preview = false, related = [], isAdmi
         <h1>{document.title || "제목 없는 글"}</h1>
         <p className="document-summary">{document.summary || "한 줄 소개를 입력하면 이 위치에 표시됩니다."}</p>
         <dl className="document-facts">
-          {document.audience && <div><dt>대상</dt><dd>{document.audience}</dd></div>}
-          {document.date && <div><dt><ClockIcon size={17}/>일시</dt><dd>{document.date}</dd></div>}
-          {document.location && <div><dt>장소</dt><dd>{document.location}</dd></div>}
-          {document.duration && <div><dt><ClockIcon size={17}/>진행 시간</dt><dd>{document.duration}</dd></div>}
-          {document.participants && <div><dt><PeopleIcon size={17}/>참여 인원</dt><dd>{document.participants}</dd></div>}
-          {document.difficulty && <div><dt>난이도</dt><dd>{document.difficulty}</dd></div>}
+          {(!document.docType || document.docType === "proposal") && (
+            <>
+              {document.audience && <div><dt>대상</dt><dd>{document.audience}</dd></div>}
+              {document.duration && <div><dt><ClockIcon size={17}/>진행 시간</dt><dd>{document.duration}</dd></div>}
+              {document.participants && <div><dt><PeopleIcon size={17}/>권장 인원</dt><dd>{document.participants}</dd></div>}
+              {document.difficulty && <div><dt>난이도</dt><dd>{document.difficulty}</dd></div>}
+            </>
+          )}
+          {document.docType === "meeting" && (
+            <>
+              {document.date && <div><dt><ClockIcon size={17}/>일시</dt><dd>{document.date}</dd></div>}
+              {document.location && <div><dt>장소</dt><dd>{document.location}</dd></div>}
+              {document.participants && <div><dt><PeopleIcon size={17}/>참석자</dt><dd>{document.participants}</dd></div>}
+            </>
+          )}
+          {document.customMeta?.map((meta, i) => (
+            <div key={i}><dt>{meta.label}</dt><dd>{meta.value}</dd></div>
+          ))}
           <div><dt>읽는 시간</dt><dd>약 {document.readMinutes || 3}분</dd></div>
         </dl>
       </header>

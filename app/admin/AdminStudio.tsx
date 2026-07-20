@@ -74,7 +74,7 @@ const starterMarkdown = `## 기획 의도
 function createEmptyDraft(clientKey = "local:initial"): Draft {
   return {
     clientKey, id: "", slug: "", title: "", summary: "", docType: "general", category: "", audience: "", duration: "",
-    participants: "", difficulty: "", location: "", date: "", coverUrl: "", tags: [], markdown: "", isPublished: false,
+    participants: "", difficulty: "", location: "", date: "", coverUrl: "", tags: [], customMeta: [], markdown: "", isPublished: false,
     updatedAt: new Date().toISOString(), readMinutes: 3, contentFormat: "markdown-v2",
   };
 }
@@ -752,12 +752,57 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
             </div>
             <label className={fieldErrors.title ? "has-error" : ""}><span>제목</span><input ref={titleRef} value={draft.title} onChange={(event) => update("title", event.target.value)} placeholder={draft.docType === "proposal" ? "기획서 제목" : draft.docType === "meeting" ? "회의 안건 또는 제목" : "글 제목"}/>{fieldErrors.title && <small>{fieldErrors.title}</small>}</label>
             <label className={fieldErrors.summary ? "has-error" : ""}><span>한 줄 소개</span><input value={draft.summary} onChange={(event) => update("summary", event.target.value)} placeholder="목록에 표시될 한 줄 소개를 적어주세요."/>{fieldErrors.summary && <small>{fieldErrors.summary}</small>}</label>
-            <label><span>대상</span><input value={draft.audience || ""} onChange={(e) => update("audience", e.target.value)} placeholder="예: 초등부, 청년부"/></label>
-            <label><span>일시</span><input type="text" value={draft.date || ""} onChange={(e) => update("date", e.target.value)} placeholder="예: 2026년 7월 20일 14:00"/></label>
-            <label><span>장소</span><input type="text" value={draft.location || ""} onChange={(e) => update("location", e.target.value)} placeholder="예: 회의실, 본당"/></label>
-            <label><span>진행 시간</span><input value={draft.duration || ""} onChange={(e) => update("duration", e.target.value)} placeholder="예: 90분, 1박 2일"/></label>
-            <label><span>참여 인원</span><input value={draft.participants || ""} onChange={(e) => update("participants", e.target.value)} placeholder="예: 10~20명, 또는 김구세, 이구원"/></label>
-            <label><span>난이도</span><input value={draft.difficulty || ""} onChange={(e) => update("difficulty", e.target.value)} placeholder="예: 쉬움, 보통, 어려움"/></label>
+            {draft.docType === "proposal" && (
+              <>
+                <label><span>대상</span><input value={draft.audience || ""} onChange={(e) => update("audience", e.target.value)} placeholder="예: 초등부, 청년부"/></label>
+                <label><span>진행 시간</span><input value={draft.duration || ""} onChange={(e) => update("duration", e.target.value)} placeholder="예: 90분, 1박 2일"/></label>
+                <label><span>권장 인원</span><input value={draft.participants || ""} onChange={(e) => update("participants", e.target.value)} placeholder="예: 10~20명"/></label>
+                <label><span>난이도</span><input value={draft.difficulty || ""} onChange={(e) => update("difficulty", e.target.value)} placeholder="예: 쉬움, 보통, 어려움"/></label>
+              </>
+            )}
+            {draft.docType === "meeting" && (
+              <>
+                <label><span>일시</span><input type="text" value={draft.date || ""} onChange={(e) => update("date", e.target.value)} placeholder="예: 2026년 7월 20일 14:00"/></label>
+                <label><span>장소</span><input type="text" value={draft.location || ""} onChange={(e) => update("location", e.target.value)} placeholder="예: 회의실, 본당"/></label>
+                <label><span>참석자</span><input type="text" value={draft.participants || ""} onChange={(e) => update("participants", e.target.value)} placeholder="예: 김구세, 이구원, 박영문"/></label>
+              </>
+            )}
+            {draft.customMeta?.map((meta, index) => (
+              <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center' }}>
+                <input 
+                  value={meta.label} 
+                  onChange={(e) => {
+                    const next = [...(draft.customMeta || [])];
+                    next[index].label = e.target.value;
+                    update("customMeta", next);
+                  }}
+                  placeholder="예: 비용"
+                  style={{ width: '80px', border: '1px solid var(--line)', borderRadius: '6px', padding: '8px 12px', fontSize: '13px', fontWeight: 'bold', outline: 'none' }}
+                />
+                <input 
+                  value={meta.value} 
+                  onChange={(e) => {
+                    const next = [...(draft.customMeta || [])];
+                    next[index].value = e.target.value;
+                    update("customMeta", next);
+                  }}
+                  placeholder="항목 내용 입력"
+                  style={{ flex: 1, border: '1px solid var(--line)', borderRadius: '6px', padding: '8px 12px', fontSize: '14px', outline: 'none' }}
+                />
+                <button type="button" onClick={() => {
+                  const next = [...(draft.customMeta || [])];
+                  next.splice(index, 1);
+                  update("customMeta", next);
+                }} style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: '4px', fontSize: '16px' }} title="항목 삭제">×</button>
+              </div>
+            ))}
+            <button 
+              type="button" 
+              onClick={() => update("customMeta", [...(draft.customMeta || []), { label: "", value: "" }])}
+              style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '6px', border: '1px dashed var(--line-dark)', background: 'transparent', cursor: 'pointer', marginBottom: '16px', display: 'block', width: '100%', color: 'var(--ink)' }}
+            >
+              + 새로운 정보 칸 추가하기
+            </button>
             <div className="tag-cover-row">
               <div className="tag-editor"><span>태그 · 최대 5개</span><div className="tag-input-shell">{draft.tags.map((tag) => <button type="button" className="tag-chip" onClick={() => removeTag(tag)} key={tag}><span>#{tag}</span><i aria-hidden="true">×</i><span className="sr-only">{tag} 태그 삭제</span></button>)}{draft.tags.length < 5 && <input value={tagInput} onChange={(event) => setTagInput(event.target.value)} onBlur={() => tagInput.trim() && commitTags()} onPaste={(event) => { const pasted = event.clipboardData.getData("text"); if (/[,\n]/.test(pasted)) { event.preventDefault(); commitTags(pasted); } }} onKeyDown={(event) => { if (event.nativeEvent.isComposing) return; if (event.key === "Enter" || event.key === ",") { event.preventDefault(); commitTags(); } else if (event.key === "Backspace" && !tagInput && draft.tags.length) removeTag(draft.tags[draft.tags.length - 1]); }} placeholder={draft.tags.length ? "태그 추가" : "입력 후 Enter"} aria-label="태그 입력"/>}</div><small>{draft.tags.length}/5 · Enter 또는 쉼표로 추가</small></div>
               <div className="cover-upload"><span>대표 이미지</span><label><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => event.target.files && uploadFiles(event.target.files, undefined, true)}/><b>{draft.coverUrl ? "이미지 바꾸기" : "이미지 선택"}</b></label>{draft.coverUrl ? <button type="button" onClick={() => update("coverUrl", "")}>이미지 제거</button> : <small>목록에는 기본 이미지가 표시되며 상세 글에서는 생략됩니다.</small>}</div>

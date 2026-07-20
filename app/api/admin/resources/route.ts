@@ -41,6 +41,19 @@ export async function POST(request: Request) {
     const [requestedExisting] = requestedId ? await db.select().from(resources).where(eq(resources.id, requestedId)).limit(1) : [];
     const existing = requestedExisting || (slugOwner?.id === "" && requestedId === "" ? slugOwner : undefined);
     const now = new Date().toISOString();
+    
+    let customMetaJson = "[]";
+    if (Array.isArray(body.customMeta)) {
+      const validMeta = body.customMeta.map(m => {
+        if (typeof m === 'object' && m !== null) {
+          const item = m as Record<string, unknown>;
+          return { label: String(item.label || "").trim().slice(0, 50), value: String(item.value || "").trim().slice(0, 200) };
+        }
+        return null;
+      }).filter(m => m && m.label && m.value);
+      customMetaJson = JSON.stringify(validMeta);
+    }
+
     const values = {
       slug, title, summary, eyebrow,
       category: String(body.category ?? "기독교 콘텐츠").slice(0, 50),
@@ -53,6 +66,7 @@ export async function POST(request: Request) {
       tagsJson: JSON.stringify(tags),
       readMinutes: Math.max(1, Math.min(120, Number(body.readMinutes) || estimateReadingTime(markdown))),
       contentFormat: "markdown-v2",
+      blocksJson: customMetaJson,
       status: isPublished ? "published" : "draft",
       isPublished,
       updatedByEmail: auth.user.email,
@@ -62,7 +76,7 @@ export async function POST(request: Request) {
     if (existing) {
       await db.update(resources).set({ ...values, id, version: existing.version + 1 }).where(eq(resources.id, existing.id));
     } else {
-      await db.insert(resources).values({ id, ...values, season: "상시", blocksJson: "[]", authorEmail: auth.user.email, createdAt: now, version: 1 });
+      await db.insert(resources).values({ id, ...values, season: "상시", authorEmail: auth.user.email, createdAt: now, version: 1 });
     }
     const [saved] = await db.select().from(resources).where(eq(resources.id, id)).limit(1);
     return Response.json({ resource: toResource(saved) }, { status: existing ? 200 : 201 });
@@ -73,7 +87,9 @@ export async function POST(request: Request) {
 
 function toResource(row: typeof resources.$inferSelect) {
   const docType = row.eyebrow === "회의록" ? "meeting" : row.eyebrow === "기획서" ? "proposal" : "general";
-  return { ...row, docType, markdown: row.contentFormat === "markdown-v1" ? upgradeMarkdownV1(row.bodyMarkdown) : row.bodyMarkdown, tags: safeTags(row.tagsJson), bodyMarkdown: undefined, tagsJson: undefined, blocksJson: undefined };
+  let customMeta = [];
+  try { customMeta = JSON.parse(row.blocksJson || "[]"); } catch {}
+  return { ...row, docType, customMeta, markdown: row.contentFormat === "markdown-v1" ? upgradeMarkdownV1(row.bodyMarkdown) : row.bodyMarkdown, tags: safeTags(row.tagsJson), bodyMarkdown: undefined, tagsJson: undefined, blocksJson: undefined };
 }
 
 function safeTags(value: string): string[] {

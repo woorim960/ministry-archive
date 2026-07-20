@@ -12,6 +12,7 @@ export type ResourceSummary = {
   location?: string;
   date?: string;
   coverUrl?: string;
+  customMeta?: { label: string; value: string }[];
   tags: string[];
   markdown?: string;
   isSample?: boolean;
