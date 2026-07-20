@@ -94,7 +94,7 @@ export function DocumentReader({ document, preview = false, related = [], isAdmi
 
       {document.coverUrl && <figure className="document-cover page-shell"><Image src={document.coverUrl} alt={`${document.title || "문서"} 대표 이미지`} width={1600} height={900} priority={!preview} sizes="(max-width: 760px) 100vw, 1180px" unoptimized={document.coverUrl.startsWith("/api/media/")}/></figure>}
 
-      <div className="document-body page-shell">
+      <div className="document-layout page-shell">
         {headings.length > 0 && <aside className="document-toc">
           <details open><summary>이 글의 목차</summary><nav>{headings.map((heading) => {
             const id = headingId(heading.text || "");
