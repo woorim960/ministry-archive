@@ -113,16 +113,11 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   const isLeftVisible = leftPanelOpen || leftPanelHover;
   const isRightVisible = rightPanelOpen || rightPanelHover;
 
-  const workspaceStyle = useMemo(() => {
+  const previewPanelStyle = useMemo(() => {
     if (typeof window !== "undefined" && window.innerWidth <= 980) return undefined;
     if (previewWidth === null) return undefined;
-    if (!isLeftVisible && !isRightVisible) return undefined;
-    if (!isLeftVisible) {
-      return { gridTemplateColumns: `minmax(500px, 1fr) ${previewWidth}px` };
-    }
-    if (!isRightVisible) return { gridTemplateColumns: `230px minmax(300px, 1fr) 0px` };
-    return { gridTemplateColumns: `230px minmax(300px, 1fr) ${previewWidth}px` };
-  }, [isLeftVisible, isRightVisible, previewWidth]);
+    return { width: `${previewWidth}px`, flexBasis: `${previewWidth}px` };
+  }, [previewWidth]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -667,7 +662,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
   return (
     <main id="main-content" className="admin-studio">
 
-      <div className={`studio-workspace ${isLeftVisible ? "" : "left-collapsed"} ${isRightVisible ? "" : "right-collapsed"} ${isResizingActive ? "is-resizing" : ""}`} style={workspaceStyle}>
+      <div className={`studio-workspace ${isLeftVisible ? "" : "left-collapsed"} ${isRightVisible ? "" : "right-collapsed"} ${isResizingActive ? "is-resizing" : ""}`}>
         {!isLeftVisible && <button type="button" className="panel-reopen panel-reopen-left" aria-label="문서 목록 열기" aria-controls="saved-panel" aria-expanded="false" onClick={() => setLeftPanelOpen(true)}><PanelLeftOpenIcon size={19}/></button>}
         {!isRightVisible && <button type="button" className="panel-reopen panel-reopen-right" aria-label="미리보기 열기" aria-controls="preview-panel" aria-expanded="false" onClick={() => setRightPanelOpen(true)}><PanelRightOpenIcon size={19}/></button>}
         {mobileLibraryOpen && <button type="button" className="mobile-library-scrim" aria-label="문서 목록 닫기" onClick={() => setMobileLibraryOpen(false)}/>}
@@ -766,7 +761,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
           </div>
         </section>
 
-        <section id="preview-panel" className={`preview-panel ${mobileTab === "preview" ? "mobile-active" : ""}`} style={{ position: "relative" }} aria-label="실제 공개 화면 미리보기">
+        <section id="preview-panel" className={`preview-panel ${mobileTab === "preview" ? "mobile-active" : ""}`} style={previewPanelStyle} aria-label="실제 공개 화면 미리보기">
           <div className={`preview-resizer ${isResizingActive ? 'is-resizing' : ''}`} onPointerDown={startResizing} />
           <div className="preview-label"><span>실제 공개 화면<small>내용과 스타일이 그대로 공개됩니다.</small></span>{rightPanelOpen && <button type="button" aria-label="미리보기 접기" aria-controls="preview-panel" aria-expanded="true" onClick={() => setRightPanelOpen(false)}><PanelRightIcon size={19}/></button>}</div>
           <div ref={previewScrollRef} className="preview-scroll"><DocumentReader document={previewDoc} preview /></div>
