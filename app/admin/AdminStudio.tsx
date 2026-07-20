@@ -479,8 +479,8 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
         const result = await response.json() as { error?: string; url?: string; alt?: string };
         if (!response.ok || !result.url) { setNotice(result.error || "이미지를 올리지 못했습니다. 다시 시도해 주세요."); continue; }
         if (cover) { update("coverUrl", result.url); break; }
-        const syntax = `![${result.alt || "이미지 설명"}](${result.url} "이미지 설명") {wide}`;
-        if (!cover && editor) { editor.chain().focus().insertContent(syntax + "\n").run(); continue; }
+        const syntax = `![${result.alt || "이미지 설명"}](${result.url} "이미지 설명")`;
+        if (!cover && editor) { editor.chain().focus().insertContent(syntax).run(); continue; }
         if (targetLine !== undefined && targetLine !== null) { nextMarkdown = insertMarkdownAtLine(nextMarkdown, targetLine, syntax); targetLine += 3; }
       } catch { setNotice("네트워크 문제로 이미지를 올리지 못했습니다. 작성 내용은 그대로 보관됩니다."); }
     }
