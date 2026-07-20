@@ -7,6 +7,7 @@ import { getDb } from "@/db";
 import { resources } from "@/db/schema";
 import type { ResourceSummary } from "@/types/content";
 import { upgradeMarkdownV1 } from "@/lib/markdown";
+import { getAdminState } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,8 @@ export default async function DocumentPage({ params }: { params: Promise<{ slug:
   const resource = await getResource(slug);
   if (!resource) notFound();
   const related = archiveSeed.filter((item) => item.slug !== slug).slice(0, 2);
-  return <main id="main-content"><DocumentReader document={resource} related={related}/></main>;
+  const state = await getAdminState();
+  return <main id="main-content"><DocumentReader document={resource} related={related} isAdmin={state.isAdmin} /></main>;
 }
 
 function safeTags(value: string): string[] {

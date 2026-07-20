@@ -52,8 +52,8 @@ const starterMarkdown = `## 기획 의도
 
 function createEmptyDraft(clientKey = "local:initial"): Draft {
   return {
-    clientKey, id: "", slug: "", title: "", summary: "", category: "기독교 콘텐츠 기획", audience: "", duration: "",
-    participants: "", difficulty: "", coverUrl: "", tags: [], markdown: starterMarkdown, isPublished: false,
+    clientKey, id: "", slug: "", title: "", summary: "", docType: "general", category: "", audience: "", duration: "",
+    participants: "", difficulty: "", location: "", date: "", coverUrl: "", tags: [], markdown: "", isPublished: false,
     updatedAt: new Date().toISOString(), readMinutes: 3, contentFormat: "markdown-v2",
   };
 }
@@ -238,12 +238,37 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     return () => window.clearTimeout(recoveryTimer);
   }, []);
 
-  useEffect(() => {
-    if (!workspaceHydrated) return;
-    try { window.localStorage.setItem(WORKING_DRAFTS_KEY, JSON.stringify({ drafts: workingDrafts, activeKey })); } catch { /* 서버 저장은 계속 가능 */ }
-  }, [activeKey, workingDrafts, workspaceHydrated]);
+  function deleteTargetDraft(clientKey: string, slug?: string) {
+    if (!window.confirm("이 문서를 정말 삭제하시겠습니까? (저장된 문서인 경우 서버에서도 영구 삭제됩니다)")) return;
+    if (slug) {
+      fetch(`/api/admin/resources/${slug}`, { method: "DELETE" }).then(res => {
+        if (res.ok) {
+           loadSaved();
+           setNotice("문서가 영구 삭제되었습니다.");
+           if (draft.clientKey === clientKey) {
+             const empty = createEmptyDraft(createLocalClientKey());
+             activateDraft(empty, "ready");
+           }
+        } else {
+           setNotice("문서 삭제에 실패했습니다.");
+        }
+      }).catch(() => setNotice("문서 삭제 중 오류가 발생했습니다."));
+    } else {
+      const nextDrafts = workingDrafts.filter(d => d.clientKey !== clientKey);
+      if (nextDrafts.length > 0) {
+        setWorkingDrafts(nextDrafts);
+        if (draft.clientKey === clientKey) activateDraft(nextDrafts[0], "dirty");
+      } else {
+        const empty = createEmptyDraft(createLocalClientKey());
+        setWorkingDrafts([empty]);
+        if (draft.clientKey === clientKey) activateDraft(empty, "ready");
+      }
+      setNotice("현재 화면에서 초안이 삭제되었습니다.");
+    }
+  }
 
   useEffect(() => {
+    if (!workspaceHydrated) return;
     const viewTimer = window.setTimeout(() => {
       try {
         const stored = window.localStorage.getItem(WORKSPACE_VIEW_KEY);
@@ -428,9 +453,9 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
 
   function validatePublish() {
     const errors: Record<string, string> = {};
-    if (!draft.title.trim()) errors.title = "공개할 기획서의 제목을 입력해 주세요.";
-    if (!draft.summary.trim()) errors.summary = "누가 참고하면 좋은지 한 줄로 소개해 주세요.";
-    if (!(draft.markdown || "").trim()) errors.markdown = "기획서 본문을 입력해 주세요.";
+    if (!draft.title.trim()) errors.title = draft.docType === "proposal" ? "공개할 기획서의 제목을 입력해 주세요." : draft.docType === "meeting" ? "회의 안건 또는 제목을 입력해 주세요." : "공개할 글의 제목을 입력해 주세요.";
+    if (!draft.summary.trim()) errors.summary = "목록에 표시될 한 줄 소개를 적어주세요.";
+    if (!(draft.markdown || "").trim()) errors.markdown = "본문을 입력해 주세요.";
     setFieldErrors(errors);
     if (errors.title) titleRef.current?.focus();
     else if (errors.markdown) editor?.commands.focus();
@@ -461,7 +486,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
       setSaved((current) => mergeSavedDocuments(current, resource));
       if (activeKeyRef.current === savingKey) { activateDraft(resource, "saved"); setTagInput(""); }
       const time = new Intl.DateTimeFormat("ko-KR", { hour: "numeric", minute: "2-digit" }).format(new Date());
-      setSavedAt(time); setNotice(mode === "publish" ? "기획서가 공개되었습니다." : publishState ? "저장한 내용이 공개 글에 반영되었습니다." : "초안이 저장되었습니다.");
+      setSavedAt(time); setNotice(mode === "publish" ? "공개되었습니다." : publishState ? "저장한 내용이 공개 글에 반영되었습니다." : "초안이 저장되었습니다.");
       if (mode === "publish") {
         window.location.href = `/documents/${resource.slug}`;
       }
@@ -643,29 +668,70 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
     <main id="main-content" className="admin-studio">
 
       <div className={`studio-workspace ${isLeftVisible ? "" : "left-collapsed"} ${isRightVisible ? "" : "right-collapsed"} ${isResizingActive ? "is-resizing" : ""}`} style={workspaceStyle}>
-        {!isLeftVisible && <button type="button" className="panel-reopen panel-reopen-left" aria-label="기획서 목록 열기" aria-controls="saved-panel" aria-expanded="false" onClick={() => setLeftPanelOpen(true)}><PanelLeftOpenIcon size={19}/></button>}
+        {!isLeftVisible && <button type="button" className="panel-reopen panel-reopen-left" aria-label="문서 목록 열기" aria-controls="saved-panel" aria-expanded="false" onClick={() => setLeftPanelOpen(true)}><PanelLeftOpenIcon size={19}/></button>}
         {!isRightVisible && <button type="button" className="panel-reopen panel-reopen-right" aria-label="미리보기 열기" aria-controls="preview-panel" aria-expanded="false" onClick={() => setRightPanelOpen(true)}><PanelRightOpenIcon size={19}/></button>}
-        {mobileLibraryOpen && <button type="button" className="mobile-library-scrim" aria-label="기획서 목록 닫기" onClick={() => setMobileLibraryOpen(false)}/>}
+        {mobileLibraryOpen && <button type="button" className="mobile-library-scrim" aria-label="문서 목록 닫기" onClick={() => setMobileLibraryOpen(false)}/>}
         <aside id="saved-panel" className={`saved-panel ${mobileLibraryOpen ? "mobile-open" : ""}`}>
-          <div className="panel-header"><span>기획서 <b>{newWorkingDrafts.length + savedDocuments.length}</b></span>{leftPanelOpen && <button type="button" aria-label="기획서 목록 접기" aria-controls="saved-panel" aria-expanded="true" onClick={() => { setLeftPanelOpen(false); setMobileLibraryOpen(false); }}><PanelLeftIcon size={19}/></button>}</div>
-          <button type="button" className="panel-new-resource" onClick={requestNewDraft}><PlusIcon size={17}/>새 기획서</button>
+          <div className="panel-header"><span>모든 글 <b>{newWorkingDrafts.length + savedDocuments.length}</b></span>{leftPanelOpen && <button type="button" aria-label="문서 목록 접기" aria-controls="saved-panel" aria-expanded="true" onClick={() => { setLeftPanelOpen(false); setMobileLibraryOpen(false); }}><PanelLeftIcon size={19}/></button>}</div>
+          
+          <button type="button" className="panel-new-resource" onClick={requestNewDraft}><PlusIcon size={17}/>새 글 쓰기</button>
+          
           {newWorkingDrafts.length > 0 && <div className="panel-section-heading"><span>작성 중</span><b>{newWorkingDrafts.length}</b></div>}
-          {newWorkingDrafts.map((item) => <button type="button" className={`document-row working ${draft.clientKey === item.clientKey ? "selected" : ""}`} onClick={() => openWorking(item)} key={item.clientKey}><small><i/>저장 안 됨</small><strong>{item.title || "제목 없는 기획서"}</strong><span>{item.updatedAt?.slice(0, 10)}</span></button>)}
-          {savedDocuments.length > 0 && <div className="panel-section-heading"><span>전체 기획서</span><b>{savedDocuments.length}</b></div>}
-          {savedDocuments.map(({ document: item, savedDocument, hasUnsavedChanges }) => <button type="button" className={`document-row ${hasUnsavedChanges ? "working" : ""} ${draft.clientKey === item.clientKey ? "selected" : ""}`} onClick={() => openSaved(item)} key={item.clientKey}><small>{hasUnsavedChanges ? <><i/>수정 중</> : savedDocument.isPublished ? "공개" : "초안"}</small><strong>{item.title || "제목 없는 기획서"}</strong><span>{savedDocument.updatedAt?.slice(0, 10)}</span></button>)}
+          {newWorkingDrafts.map((item) => (
+            <span key={item.clientKey} style={{ display: 'block', position: 'relative' }}>
+              <button type="button" className={`document-row working ${draft.clientKey === item.clientKey ? "selected" : ""}`} onClick={() => openWorking(item)}>
+                <small><i/>저장 안 됨</small><strong>{item.title || "제목 없는 글"}</strong><span>{item.updatedAt?.slice(0, 10)}</span>
+              </button>
+              <span role="button" onClick={() => deleteTargetDraft(item.clientKey)} style={{ position: 'absolute', top: '16px', right: '12px', color: 'var(--red)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', zIndex: 10, padding: '4px' }}>삭제</span>
+            </span>
+          ))}
+          
+          {savedDocuments.length > 0 && <div className="panel-section-heading"><span>전체 글</span><b>{savedDocuments.length}</b></div>}
+          {savedDocuments.map(({ document: item, savedDocument, hasUnsavedChanges }) => (
+            <span key={item.clientKey} style={{ display: 'block', position: 'relative' }}>
+              <button type="button" className={`document-row ${hasUnsavedChanges ? "working" : ""} ${draft.clientKey === item.clientKey ? "selected" : ""}`} onClick={() => openSaved(item)}>
+                <small>{hasUnsavedChanges ? <><i/>수정 중</> : savedDocument.isPublished ? "공개" : "초안"}</small><strong>{item.title || "제목 없는 글"}</strong><span>{savedDocument.updatedAt?.slice(0, 10)}</span>
+              </button>
+              <span role="button" onClick={() => deleteTargetDraft(item.clientKey, item.slug)} style={{ position: 'absolute', top: '16px', right: '12px', color: 'var(--red)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', zIndex: 10, padding: '4px' }}>삭제</span>
+            </span>
+          ))}
+
+          <footer style={{ marginTop: '24px', paddingTop: '16px', paddingBottom: '16px', borderTop: '1px solid var(--line)' }}>
+            <Link href="/" className="home-button" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '10px 0', fontSize: '13px', fontWeight: 700, color: 'var(--ink)', background: '#fff', border: '1px solid var(--line-dark)', borderRadius: '6px' }}>← 홈으로 이동</Link>
+          </footer>
         </aside>
 
         <section ref={editorPanelRef} className={`editor-panel ${mobileTab === "write" ? "mobile-active" : ""}`} onScroll={handleEditorScroll}>
           <div className="editor-metadata">
-            <label className={fieldErrors.title ? "has-error" : ""}><span>제목</span><input ref={titleRef} value={draft.title} onChange={(event) => update("title", event.target.value)} placeholder="기획서 제목"/>{fieldErrors.title && <small>{fieldErrors.title}</small>}</label>
-            <label className={fieldErrors.summary ? "has-error" : ""}><span>한 줄 소개</span><textarea value={draft.summary} onChange={(event) => update("summary", event.target.value)} placeholder="누가, 무엇을 위해 참고하면 좋은 기획인지 한 문장으로 설명해 주세요." rows={2}/>{fieldErrors.summary && <small>{fieldErrors.summary}</small>}</label>
+            <div className="document-type-selector" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+              <button type="button" className={(!draft.docType || draft.docType === "general") ? "active" : ""} onClick={() => update("docType", "general")} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--line-dark)', background: (!draft.docType || draft.docType === "general") ? 'var(--blue)' : '#fff', color: (!draft.docType || draft.docType === "general") ? '#fff' : 'inherit', fontSize: '11px', fontWeight: 700 }}>일반 글쓰기</button>
+              <button type="button" className={draft.docType === "meeting" ? "active" : ""} onClick={() => update("docType", "meeting")} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--line-dark)', background: draft.docType === "meeting" ? 'var(--blue)' : '#fff', color: draft.docType === "meeting" ? '#fff' : 'inherit', fontSize: '11px', fontWeight: 700 }}>회의록</button>
+              <button type="button" className={draft.docType === "proposal" ? "active" : ""} onClick={() => update("docType", "proposal")} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--line-dark)', background: draft.docType === "proposal" ? 'var(--blue)' : '#fff', color: draft.docType === "proposal" ? '#fff' : 'inherit', fontSize: '11px', fontWeight: 700 }}>기획서</button>
+            </div>
+            <label className={fieldErrors.title ? "has-error" : ""}><span>제목</span><input ref={titleRef} value={draft.title} onChange={(event) => update("title", event.target.value)} placeholder={draft.docType === "proposal" ? "기획서 제목" : draft.docType === "meeting" ? "회의 안건 또는 제목" : "글 제목"}/>{fieldErrors.title && <small>{fieldErrors.title}</small>}</label>
+            <label className={fieldErrors.summary ? "has-error" : ""}><span>한 줄 소개</span><input value={draft.summary} onChange={(event) => update("summary", event.target.value)} placeholder="목록에 표시될 한 줄 소개를 적어주세요."/>{fieldErrors.summary && <small>{fieldErrors.summary}</small>}</label>
+            {draft.docType === "proposal" && (
+              <>
+                <label><span>대상</span><input value={draft.audience} onChange={(e) => update("audience", e.target.value)} placeholder="예: 초등부, 청년부"/></label>
+                <label><span>진행 시간</span><input value={draft.duration} onChange={(e) => update("duration", e.target.value)} placeholder="예: 90분, 1박 2일"/></label>
+                <label><span>권장 인원</span><input value={draft.participants || ""} onChange={(e) => update("participants", e.target.value)} placeholder="예: 10~20명"/></label>
+                <label><span>난이도</span><input value={draft.difficulty || ""} onChange={(e) => update("difficulty", e.target.value)} placeholder="예: 쉬움, 보통, 어려움"/></label>
+              </>
+            )}
+            {draft.docType === "meeting" && (
+              <>
+                <label><span>일시</span><input type="text" value={draft.date || ""} onChange={(e) => update("date", e.target.value)} placeholder="예: 2026년 7월 20일 14:00"/></label>
+                <label><span>장소</span><input type="text" value={draft.location || ""} onChange={(e) => update("location", e.target.value)} placeholder="예: 회의실, 본당"/></label>
+                <label><span>참석자</span><input type="text" value={draft.participants || ""} onChange={(e) => update("participants", e.target.value)} placeholder="예: 김구세, 이구원, 박영문"/></label>
+              </>
+            )}
             <div className="tag-cover-row">
               <div className="tag-editor"><span>태그 · 최대 5개</span><div className="tag-input-shell">{draft.tags.map((tag) => <button type="button" className="tag-chip" onClick={() => removeTag(tag)} key={tag}><span>#{tag}</span><i aria-hidden="true">×</i><span className="sr-only">{tag} 태그 삭제</span></button>)}{draft.tags.length < 5 && <input value={tagInput} onChange={(event) => setTagInput(event.target.value)} onBlur={() => tagInput.trim() && commitTags()} onPaste={(event) => { const pasted = event.clipboardData.getData("text"); if (/[,\n]/.test(pasted)) { event.preventDefault(); commitTags(pasted); } }} onKeyDown={(event) => { if (event.nativeEvent.isComposing) return; if (event.key === "Enter" || event.key === ",") { event.preventDefault(); commitTags(); } else if (event.key === "Backspace" && !tagInput && draft.tags.length) removeTag(draft.tags[draft.tags.length - 1]); }} placeholder={draft.tags.length ? "태그 추가" : "입력 후 Enter"} aria-label="태그 입력"/>}</div><small>{draft.tags.length}/5 · Enter 또는 쉼표로 추가</small></div>
               <div className="cover-upload"><span>대표 이미지</span><label><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => event.target.files && uploadFiles(event.target.files, undefined, true)}/><b>{draft.coverUrl ? "이미지 바꾸기" : "이미지 선택"}</b></label>{draft.coverUrl ? <button type="button" onClick={() => update("coverUrl", "")}>이미지 제거</button> : <small>목록에는 기본 이미지가 표시되며 상세 글에서는 생략됩니다.</small>}</div>
             </div>
           </div>
 
-          <div className="markdown-toolbar" role="toolbar" aria-label="기획서 서식">
+          <div className="markdown-toolbar" role="toolbar" aria-label="서식 도구">
             <div className="toolbar-guide"><b>{selection.end > selection.start ? "선택한 글자에 효과를 적용합니다." : "글자를 드래그한 뒤 효과를 선택하세요."}</b><small>각 버튼에 마우스를 올리면 사용법이 표시됩니다.</small></div>
             <div ref={toolbarCallbackRef} className="toolbar-groups-viewport" aria-label="서식 도구 가로 스크롤" onPointerDown={startToolbarDrag} onPointerMove={moveToolbarDrag} onPointerUp={endToolbarDrag} onPointerCancel={endToolbarDrag} onClickCapture={handleToolbarClickCapture} onWheel={handleToolbarWheel}><div className="toolbar-groups">
               <div className="toolbar-group toolbar-text-group"><span>글자 효과</span>
@@ -707,7 +773,7 @@ export function AdminStudio({ userName, userEmail }: { userName: string; userEma
         </section>
 
         <div className={`floating-commandbar ${commandbarVisible ? "" : "hidden"}`}>
-          <button type="button" className="mobile-library-button" aria-expanded={mobileLibraryOpen} aria-controls="saved-panel" onClick={() => setMobileLibraryOpen(true)}><PanelLeftIcon size={18}/><span>기획서</span></button>
+          <button type="button" className="mobile-library-button" aria-expanded={mobileLibraryOpen} aria-controls="saved-panel" onClick={() => setMobileLibraryOpen(true)}><PanelLeftIcon size={18}/><span>전체 글</span></button>
           <div className={`studio-status state-${savePhase}`}><span/>{statusText}{savePhase === "error" && <button onClick={() => void save("save")}>다시 시도</button>}</div>
           <div className="workspace-view-controls" role="group" aria-label="편집 화면 패널 보기">
             <button type="button" className="has-tip focus-mode-control" data-help={focusMode ? "클릭하면 미리보기와 목록 패널을 엽니다." : "클릭하면 양쪽 패널을 닫고 편집에 집중합니다."} aria-label={focusMode ? "집중 모드 종료" : "집중 모드 시작"} aria-pressed={focusMode} onClick={toggleFocusMode}><FocusIcon size={17}/><span>{focusMode ? "미리보기 켜기" : "미리보기 중.."}</span></button>

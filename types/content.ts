@@ -3,11 +3,14 @@ export type ResourceSummary = {
   slug: string;
   title: string;
   summary: string;
+  docType?: "proposal" | "meeting" | "general";
   category: string;
   audience: string;
   duration: string;
   participants?: string;
   difficulty?: string;
+  location?: string;
+  date?: string;
   coverUrl?: string;
   tags: string[];
   markdown?: string;

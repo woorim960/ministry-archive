@@ -57,14 +57,11 @@ function inlineLines(text: string) {
   return lines.map((line, index) => <span key={index}>{inline(line)}{index < lines.length - 1 && <br/>}</span>);
 }
 
-export function MarkdownDocument({ markdown, editable }: {
-  markdown: string;
-  editable?: boolean;
-}) {
+export function MarkdownDocument({ markdown, editable, className }: { markdown: string, editable?: boolean, className?: string }) {
   const blocks = parseMarkdown(markdown);
 
   return (
-    <div className="markdown-body">
+    <div className={`markdown-body ${className || ""}`}>
       {blocks.map((block, index) => {
         let content: ReactNode;
         if (block.type === "heading") {
@@ -75,9 +72,9 @@ export function MarkdownDocument({ markdown, editable }: {
         } else if (block.type === "quote") {
           content = <blockquote>{inlineLines(block.text || "")}</blockquote>;
         } else if (block.type === "toggle") {
-          content = <details className="document-toggle"><summary><span>{inline(block.title || "펼쳐보기")}</span><i aria-hidden="true"/></summary><div><p>{inlineLines(block.text || "")}</p></div></details>;
+          content = <details className="document-toggle"><summary><span>{inline(block.title || "펼쳐보기")}</span><i aria-hidden="true"/></summary><div><MarkdownDocument markdown={block.text || ""} className="nested-markdown" editable={editable} /></div></details>;
         } else if (block.type === "callout") {
-          content = <aside className={`document-callout tone-${block.tone || "blue"}`}><span>참고</span>{block.title && block.title !== "참고" ? <h3>{block.title}</h3> : null}<p>{inlineLines(block.text || "")}</p></aside>;
+          content = <aside className={`document-callout tone-${block.tone || "blue"}`}><span>참고</span>{block.title && block.title !== "참고" ? <h3>{block.title}</h3> : null}<MarkdownDocument markdown={block.text || ""} className="nested-markdown" editable={editable} /></aside>;
         } else if (block.type === "list") {
           if (block.listItems && block.listItems.length > 0) {
             const nestedTree = buildNestedList(block.listItems);
